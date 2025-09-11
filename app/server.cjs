@@ -15,6 +15,16 @@ if (!process.env.GEMINI_API_KEY) {
     process.exit(1);
 }
 
+// Budget cap (dev: in-memory)
+let callsToday = 0;
+let day = new Date().toDateString();
+function withinCap(max) {
+    const nowDay = new Date().toDateString();
+    if (nowDay !== day) { day = nowDay; callsToday = 0; }
+    if (callsToday >= max) return false;
+    callsToday++; return true;
+}
+
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "1mb" }));
 
@@ -61,8 +71,20 @@ const MODEL_ID = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
 // --- Deep analysis ---
 app.post("/api/deep", async (req, res) => {
-    const { query, rows } = req.body || {};
+    const { query, rows, model, temperature } = req.body || {};
     const csvSize = Array.isArray(rows) ? rows.length : 0;
+    const chosenModel = (typeof model === 'string' && model.trim()) ? model : MODEL_ID;
+    const temp = Number.isFinite(Number(temperature)) ? Number(temperature) : 0.4;
+
+    // Budget cap check
+    const cap = Number(process.env.BUDGET_CAP || 0) || 500;
+    if (!withinCap(cap)) {
+        return res.status(200).json({
+            summary: "Budget cap reached — returning safe fallback.",
+            indices: { demand: 55, momentum: 55, saturation: 45, freshness: 50, styleFit: 60 },
+            sources: ["fallback", "cap"]
+        });
+    }
 
     // If key somehow missing at runtime, never 500 → mock
     if (!process.env.GEMINI_API_KEY) {
@@ -102,9 +124,12 @@ Keep it practical and honest. Higher "confidence" when CSV patterns are strong; 
             "Respond with JSON only."
         ].join("\n");
 
-        const model = genAI.getGenerativeModel({ model: MODEL_ID });
+        const modelClient = genAI.getGenerativeModel({
+            model: chosenModel,
+            generationConfig: { temperature: temp }
+        });
         const prompt = sys + "\n\n" + user;
-        const result = await model.generateContent(prompt);
+        const result = await modelClient.generateContent(prompt);
 
         const text = result.response.text();
         const indices = mapGeminiToIndices(text);
@@ -119,7 +144,7 @@ Keep it practical and honest. Higher "confidence" when CSV patterns are strong; 
                     if (Number.isFinite(n)) confidence = Math.max(0, Math.min(100, Math.round(n)));
                 }
             }
-        } catch {}
+        } catch { }
 
         const summaryMatch = text.match(/"summary"\s*:\s*"([^"]+)"/);
         const summary =

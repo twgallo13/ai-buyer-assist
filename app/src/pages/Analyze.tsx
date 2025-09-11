@@ -1,9 +1,11 @@
 import React, { useState, useCallback } from 'react';
 import type { Row, DeepResult } from '../types';
+import { getSettings } from '../lib/settings';
+import { computeQuickIndices, verdictFrom } from '../lib/verdict';
 
 const Analyze: React.FC = () => {
     const [input, setInput] = useState('');
-    const [mode, setMode] = useState<'Quick' | 'Deep'>('Quick');
+    const [mode, setMode] = useState<'quick' | 'deep'>(getSettings().defaultMode);
     const [result, setResult] = useState<DeepResult | null>(null);
     const [noData, setNoData] = useState<boolean>(false);
 
@@ -163,12 +165,16 @@ const Analyze: React.FC = () => {
         setErrorMessage(null);
 
         try {
-            if (mode === 'Quick') {
+            if (mode === 'quick') {
+                const s = getSettings();
+                const indices = computeQuickIndices(rows || [], s.weights, s.scenario);
+                const verdict = verdictFrom(indices, s.thresholds);
                 setResult({
-                    summary: 'Quick analysis complete (CSV optional).',
-                    indices: { demand: 0, momentum: 0, saturation: 0, freshness: 0, styleFit: 0 },
-                    sources: ['quick']
+                    summary: `Quick analysis verdict: ${verdict}.`,
+                    indices,
+                    sources: ['quick', 'csv']
                 });
+                setShowMockBanner(false);
                 setIncludedRowsCount(0);
             } else {
                 const hasRows = Array.isArray(rows) && rows.length > 0;
@@ -176,10 +182,11 @@ const Analyze: React.FC = () => {
                 const matchedRows = hasRows ? findMatchingRows(input, rows) : [];
                 setIncludedRowsCount(matchedRows.length);
 
+                const s = getSettings();
                 const response = await fetch('/api/deep', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: input, rows: matchedRows }),
+                    body: JSON.stringify({ query: input, rows: matchedRows, model: s.model, temperature: s.temperature }),
                 });
 
                 if (!response.ok) {
@@ -409,14 +416,6 @@ const Analyze: React.FC = () => {
                                 const res = await fetch('/sample-data.csv');
                                 const text = await res.text();
                                 // naive CSV parse (headers required)
-                                const [headerLine, ...lines] = text.trim().split(/\r?\n/);
-                                const headers = headerLine.split(',');
-                                const sampleRows = lines.slice(0, 200).map((ln) => {
-                                    const cols = ln.split(',');
-                                    const rec = {} as any;
-                                    headers.forEach((h, i) => rec[h.trim()] = cols[i]?.trim());
-                                    return rec;
-                                });
                                 const parsedRows = parseCSV(text);
                                 setRows(parsedRows);
                                 setCsvLoaded(true);
@@ -447,16 +446,16 @@ const Analyze: React.FC = () => {
                     <span>Mode:</span>
                     <button
                         type="button"
-                        onClick={() => setMode('Quick')}
-                        style={toggleButtonStyle(mode === 'Quick')}
+                        onClick={() => setMode('quick')}
+                        style={toggleButtonStyle(mode === 'quick')}
                         disabled={isLoading}
                     >
                         Quick
                     </button>
                     <button
                         type="button"
-                        onClick={() => setMode('Deep')}
-                        style={toggleButtonStyle(mode === 'Deep')}
+                        onClick={() => setMode('deep')}
+                        style={toggleButtonStyle(mode === 'deep')}
                         disabled={isLoading}
                     >
                         Deep
@@ -515,7 +514,7 @@ const Analyze: React.FC = () => {
                         <div style={{ marginBottom: '20px', fontSize: '14px', opacity: 0.8 }}>Confidence: {Math.round(result.confidence)}%</div>
                     )}
 
-                    {mode === 'Deep' && result.indices && (
+                    {mode === 'deep' && result.indices && (
                         <>
                             <h4>Market Indices</h4>
                             <div style={indicesStyle}>
