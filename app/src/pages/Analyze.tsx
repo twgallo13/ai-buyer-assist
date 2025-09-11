@@ -182,7 +182,7 @@ const Analyze: React.FC = () => {
                 if (!response.ok) {
                     // Don't alert, show inline error instead
                     setErrorMessage('Analysis failed. Falling back to mock.');
-                    
+
                     // Use a fallback mock response
                     const fallbackMock = {
                         summary: 'Analysis failed. Falling back to mock.',
@@ -206,7 +206,7 @@ const Analyze: React.FC = () => {
             console.error('Analysis failed:', error);
             // Show inline error instead of alert
             setErrorMessage('Analysis failed. Falling back to mock.');
-            
+
             // Use a fallback mock response
             const fallbackMock = {
                 summary: 'Network error. Falling back to mock.',
@@ -436,9 +436,9 @@ const Analyze: React.FC = () => {
                     )}
 
                     {errorMessage && (
-                        <div style={{ 
-                            ...bannerStyle, 
-                            backgroundColor: '#f44336', 
+                        <div style={{
+                            ...bannerStyle,
+                            backgroundColor: '#f44336',
                             color: '#fff',
                             display: 'flex',
                             justifyContent: 'space-between',

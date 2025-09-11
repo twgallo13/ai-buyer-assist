@@ -47,7 +47,7 @@ app.post('/api/deep', async (req, res) => {
         // const geminiResponse = await callGeminiAPI(query, rows);
         // const mappedResponse = mapGeminiResponse(geminiResponse);
         // res.json(mappedResponse);
-        
+
         // Return mock for now, but never send 500
         res.status(200).json(mockResponse);
     } catch (error) {
