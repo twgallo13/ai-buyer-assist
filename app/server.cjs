@@ -75,27 +75,32 @@ app.post("/api/deep", async (req, res) => {
 
     try {
         const sys = `
-You are a retail trend assistant. Return concise KPIs (0-100) for:
+You are a retail trend assistant for footwear/apparel. Return concise KPIs (0–100) for:
 - demand, momentum, saturation, freshness, styleFit
 If CSV rows are provided, use them as context (velocity, sell-through, collections, categories, colors).
-Return a single JSON object with those five keys and a short one-sentence summary.
+If NO rows are provided, infer from general retail knowledge and typical market dynamics for the query (brand, collection, category, color family).
+ALWAYS return a single JSON object:
+{
+  "summary": "one or two sentences about outlook",
+  "demand": 0-100,
+  "momentum": 0-100,
+  "saturation": 0-100,
+  "freshness": 0-100,
+  "styleFit": 0-100,
+  "confidence": 0-100
+}
+Keep it practical and honest. Higher "confidence" when CSV patterns are strong; lower when inferring without data.
 `;
 
-        const user = `
-Query: ${query || "(none)"}
-CSV rows included: ${csvSize}
-CSV sample (first up to 5):
-${JSON.stringify((rows || []).slice(0, 5), null, 2)}
-Please respond with:
-{
-  "summary": "...",
-  "demand": <0-100>,
-  "momentum": <0-100>,
-  "saturation": <0-100>,
-  "freshness": <0-100>,
-  "styleFit": <0-100>
-}
-`;
+        const sampleRows = JSON.stringify((rows || []).slice(0, 5), null, 2);
+        const user = [
+            `Query: ${query || "(none)"}`,
+            `CSV rows included: ${csvSize}`,
+            `CSV sample (first up to 5):`,
+            sampleRows || "(none)",
+            "",
+            "Respond with JSON only."
+        ].join("\n");
 
         const model = genAI.getGenerativeModel({ model: MODEL_ID });
         const prompt = sys + "\n\n" + user;
@@ -103,6 +108,18 @@ Please respond with:
 
         const text = result.response.text();
         const indices = mapGeminiToIndices(text);
+        // Try to pull confidence if present
+        let confidence = 60;
+        try {
+            const m = text.match(/\{[\s\S]*\}/);
+            if (m) {
+                const obj = JSON.parse(m[0]);
+                if (typeof obj.confidence !== "undefined") {
+                    const n = Number(obj.confidence);
+                    if (Number.isFinite(n)) confidence = Math.max(0, Math.min(100, Math.round(n)));
+                }
+            }
+        } catch {}
 
         const summaryMatch = text.match(/"summary"\s*:\s*"([^"]+)"/);
         const summary =
@@ -112,6 +129,7 @@ Please respond with:
         return res.status(200).json({
             summary,
             indices,
+            confidence,
             sources: ["gemini", csvSize > 0 ? "csv" : "no-csv"],
         });
     } catch (error) {

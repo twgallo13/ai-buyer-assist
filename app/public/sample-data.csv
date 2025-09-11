@@ -1,0 +1,26 @@
+SKU,Product Name,Collection,Category,Class,Velocity Units/Day,MSRP,Color Family,Material,Gender Target,Historic Sell-through 28d,Historic Sell-through 90d
+J1-HT-001,Air Jordan 1 High Retro,"Jordan 1",Basketball,Sneaker,8,180,Black/Red,Leather,Men,0.62,0.71
+J1-HT-002,Air Jordan 1 High OG,"Jordan 1",Basketball,Sneaker,6,180,White/Black,Leather,Men,0.55,0.64
+J1-MD-003,Air Jordan 1 Mid,"Jordan 1",Basketball,Sneaker,5,125,Blue/White,Leather,Men,0.51,0.60
+J1-LW-004,Air Jordan 1 Low,"Jordan 1",Casual,Sneaker,7,110,White/Red,Leather,Women,0.57,0.66
+SS-CL-010,Adidas Superstar Classic,Superstar,Casual,Sneaker,9,95,White/Black,Leather,Unisex,0.69,0.76
+SS-CL-011,Adidas Superstar Premium,Superstar,Casual,Sneaker,6,110,White/Green,Leather,Unisex,0.58,0.68
+AF1-CL-020,Nike Air Force 1 Low,Air Force 1,Casual,Sneaker,10,110,White,Leather,Unisex,0.73,0.80
+AF1-CL-021,Nike Air Force 1 '07,Air Force 1,Casual,Sneaker,8,115,Black,Leather,Unisex,0.67,0.75
+UB-RN-030,Adidas Ultraboost 22,Ultraboost,Running,Sneaker,7,190,Black/White, Knit,Men,0.60,0.70
+UB-RN-031,Adidas Ultraboost Light,Ultraboost,Running,Sneaker,6,200,Grey, Knit,Women,0.56,0.66
+HOK-CL-040,HOKA Clifton 9,Clifton,Running,Sneaker,9,145,Blue/Orange,Mesh,Unisex,0.70,0.79
+HOK-BO-041,HOKA Bondi 8,Bondi,Running,Sneaker,7,165,Black/White,Mesh,Unisex,0.63,0.72
+NB-99-050,New Balance 990v6,990,Casual,Sneaker,5,199,Grey,Suede,Men,0.54,0.62
+NB-55-051,New Balance 550,550,Casual,Sneaker,8,120,White/Green,Leather,Unisex,0.66,0.74
+NB-32-052,New Balance 327,327,Casual,Sneaker,6,100,White/Navy,Suede,Unisex,0.57,0.65
+PUMA-CL-060,Puma Suede Classic,Suede,Casual,Sneaker,6,75,Black/White,Suede,Unisex,0.59,0.68
+CONV-CT-070,Converse Chuck 70,Chuck Taylor,Casual,Sneaker,8,90,Black/White,Canvas,Unisex,0.65,0.73
+CONV-ALL-071,Converse All Star,Chuck Taylor,Casual,Sneaker,9,65,White,Canvas,Unisex,0.69,0.77
+J1-GS-100,Jordan 1 Grade School,"Jordan 1",Basketball,Sneaker,7,100,White/Pink,Leather,Kids,0.63,0.71
+J1-MD-101,Jordan 1 Mid SE,"Jordan 1",Basketball,Sneaker,6,135,Tan/Brown,Leather,Men,0.56,0.65
+SS-KD-110,Superstar Kids,Superstar,Casual,Sneaker,7,70,White/Blue,Leather,Kids,0.61,0.70
+AF1-KD-120,Air Force 1 Kids,Air Force 1,Casual,Sneaker,8,85,White,Leather,Kids,0.66,0.74
+UB-W-130,Ultraboost Women,Ultraboost,Running,Sneaker,5,190,Black/Pink,Knit,Women,0.55,0.64
+HOK-W-140,HOKA Clifton Women,Clifton,Running,Sneaker,7,145,White/Teal,Mesh,Women,0.61,0.70
+NB-55-W-151,New Balance 550 Women,550,Casual,Sneaker,7,120,White/Beige,Leather,Women,0.62,0.71

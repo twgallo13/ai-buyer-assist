@@ -19,7 +19,9 @@ export type Indices = {
 };
 
 export type DeepResult = {
+    mode?: 'real' | 'mock-nokey' | 'mock-fallback';
     summary: string;
     indices?: Indices;
     sources?: string[];
+    confidence?: number;
 };

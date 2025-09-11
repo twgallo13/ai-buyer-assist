@@ -5,6 +5,7 @@ const Analyze: React.FC = () => {
     const [input, setInput] = useState('');
     const [mode, setMode] = useState<'Quick' | 'Deep'>('Quick');
     const [result, setResult] = useState<DeepResult | null>(null);
+    const [noData, setNoData] = useState<boolean>(false);
 
     // CSV state
     const [isLoading, setIsLoading] = useState(false);
@@ -170,7 +171,9 @@ const Analyze: React.FC = () => {
                 });
                 setIncludedRowsCount(0);
             } else {
-                const matchedRows = findMatchingRows(input, rows);
+                const hasRows = Array.isArray(rows) && rows.length > 0;
+                setNoData(!hasRows);
+                const matchedRows = hasRows ? findMatchingRows(input, rows) : [];
                 setIncludedRowsCount(matchedRows.length);
 
                 const response = await fetch('/api/deep', {
@@ -185,6 +188,7 @@ const Analyze: React.FC = () => {
 
                     // Use a fallback mock response
                     const fallbackMock = {
+                        mode: 'mock-fallback' as const,
                         summary: 'Analysis failed. Falling back to mock.',
                         indices: { demand: 50, momentum: 50, saturation: 50, freshness: 50, styleFit: 50 },
                         sources: ['mock', 'fallback']
@@ -195,12 +199,14 @@ const Analyze: React.FC = () => {
                     const data = await response.json();
                     setResult(data);
 
-                    if (data.sources && data.sources.includes('mock')) {
-                        setShowMockBanner(true);
+                    // Legacy support: if server adds "confidence", surface it; mock banner driven by sources/includes
+                    setShowMockBanner(Array.isArray(data.sources) && data.sources.includes('mock'));
+
+                    // Only decrement remaining on real success
+                    if (data.mode === 'real') {
+                        setRemaining(prev => Math.max(0, prev - 100));
                     }
                 }
-
-                setRemaining(prev => Math.max(0, prev - 100));
             }
         } catch (error) {
             console.error('Analysis failed:', error);
@@ -209,6 +215,7 @@ const Analyze: React.FC = () => {
 
             // Use a fallback mock response
             const fallbackMock = {
+                mode: 'mock-fallback' as const,
                 summary: 'Network error. Falling back to mock.',
                 indices: { demand: 50, momentum: 50, saturation: 50, freshness: 50, styleFit: 50 },
                 sources: ['mock', 'fallback']
@@ -391,6 +398,40 @@ const Analyze: React.FC = () => {
                 )}
             </div>
 
+            {!rows?.length && (
+                <div style={{ ...bannerStyle, border: '1px solid #facc15', backgroundColor: '#fef3c7', color: '#92400e', marginBottom: '20px', maxWidth: '600px' }}>
+                    No CSV loaded — Deep will infer from general trend knowledge. Results may have lower confidence.
+                    <button
+                        type="button"
+                        style={{ marginLeft: '12px', textDecoration: 'underline', background: 'none', border: 'none', color: '#92400e', cursor: 'pointer' }}
+                        onClick={async () => {
+                            try {
+                                const res = await fetch('/sample-data.csv');
+                                const text = await res.text();
+                                // naive CSV parse (headers required)
+                                const [headerLine, ...lines] = text.trim().split(/\r?\n/);
+                                const headers = headerLine.split(',');
+                                const sampleRows = lines.slice(0, 200).map((ln) => {
+                                    const cols = ln.split(',');
+                                    const rec = {} as any;
+                                    headers.forEach((h, i) => rec[h.trim()] = cols[i]?.trim());
+                                    return rec;
+                                });
+                                const parsedRows = parseCSV(text);
+                                setRows(parsedRows);
+                                setCsvLoaded(true);
+                                setPreviewRows(parsedRows.slice(0, 5));
+                                setMissingHeaders([]);
+                            } catch (error) {
+                                console.error('Failed to load sample data:', error);
+                            }
+                        }}
+                    >
+                        Load sample data
+                    </button>
+                </div>
+            )}
+
             <form onSubmit={handleSubmit} style={{ ...sectionStyle, maxWidth: '600px' }}>
                 <h3>Analysis</h3>
                 <input
@@ -470,6 +511,9 @@ const Analyze: React.FC = () => {
                     )}
 
                     <p style={{ marginBottom: '20px' }}>{result.summary}</p>
+                    {'confidence' in result && result.confidence !== undefined && (
+                        <div style={{ marginBottom: '20px', fontSize: '14px', opacity: 0.8 }}>Confidence: {Math.round(result.confidence)}%</div>
+                    )}
 
                     {mode === 'Deep' && result.indices && (
                         <>
