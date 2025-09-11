@@ -1,9 +1,16 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+"use strict";
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Fail fast if key missing
+if (!process.env.GEMINI_API_KEY) {
+    console.error("❌ GEMINI_API_KEY missing in .env");
+    process.exit(1);
+}
 
 // Middleware
 app.use(cors({ origin: true, credentials: true }));
