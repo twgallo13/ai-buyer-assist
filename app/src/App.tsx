@@ -1,51 +1,48 @@
 import { useState } from 'react'
 import Analyze from './pages/Analyze'
+import TrendRadar from './pages/TrendRadar'
 import SettingsPage from './pages/Settings'
 import BatchPage from './pages/Batch'
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<'analyze' | 'batch' | 'settings'>('analyze');
+  const [currentPage, setCurrentPage] = useState<'analyze' | 'trendradar' | 'batch' | 'settings'>('analyze');
+
+  const navButtonStyle = (isActive: boolean) => ({
+    padding: '0.5rem 1rem',
+    backgroundColor: isActive ? '#6366f1' : 'transparent',
+    border: '1px solid #6366f1',
+    borderRadius: '0.25rem',
+    color: isActive ? '#ffffff' : '#6366f1',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    outline: 'none'
+  });
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#0a0a0a', color: '#ffffff' }}>
-      <nav style={{ borderBottom: '1px solid #333', padding: '1rem' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#0b0b0f', color: '#f2f2f5' }}>
+      <nav style={{ borderBottom: '1px solid #333', padding: '1rem', backgroundColor: '#14141a' }}>
         <div style={{ display: 'flex', gap: '1rem' }}>
           <button
             onClick={() => setCurrentPage('analyze')}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: currentPage === 'analyze' ? '#333' : 'transparent',
-              border: '1px solid #555',
-              borderRadius: '0.25rem',
-              color: '#fff',
-              cursor: 'pointer'
-            }}
+            style={navButtonStyle(currentPage === 'analyze')}
           >
             Analyze
           </button>
           <button
+            onClick={() => setCurrentPage('trendradar')}
+            style={navButtonStyle(currentPage === 'trendradar')}
+          >
+            Trend Radar
+          </button>
+          <button
             onClick={() => setCurrentPage('batch')}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: currentPage === 'batch' ? '#333' : 'transparent',
-              border: '1px solid #555',
-              borderRadius: '0.25rem',
-              color: '#fff',
-              cursor: 'pointer'
-            }}
+            style={navButtonStyle(currentPage === 'batch')}
           >
             Batch
           </button>
           <button
             onClick={() => setCurrentPage('settings')}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: currentPage === 'settings' ? '#333' : 'transparent',
-              border: '1px solid #555',
-              borderRadius: '0.25rem',
-              color: '#fff',
-              cursor: 'pointer'
-            }}
+            style={navButtonStyle(currentPage === 'settings')}
           >
             Settings
           </button>
@@ -53,6 +50,7 @@ function App() {
       </nav>
 
       {currentPage === 'analyze' && <Analyze />}
+      {currentPage === 'trendradar' && <TrendRadar />}
       {currentPage === 'batch' && <BatchPage />}
       {currentPage === 'settings' && <SettingsPage />}
     </div>

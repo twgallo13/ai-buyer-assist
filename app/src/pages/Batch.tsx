@@ -1,16 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getSettings } from '../lib/settings';
 import { computeQuickIndices, verdictFrom } from '../lib/verdict';
+import { getCsvRows, subscribeCsv } from '../lib/csv-store';
 
 export default function BatchPage() {
-    const [rows, setRows] = useState<any[]>([]); // re-use your CSV store if you have one
+    const [csvRows, setCsvRows] = useState<any[]>(getCsvRows());
     const [out, setOut] = useState<any[]>([]);
     const [running, setRunning] = useState(false);
+
+    // Subscribe to CSV changes
+    useEffect(() => {
+        const unsubscribe = subscribeCsv((newRows) => {
+            setCsvRows(newRows);
+        });
+        return unsubscribe;
+    }, []);
 
     async function runQuick() {
         setRunning(true);
         const s = getSettings();
-        const res = rows.map((r) => {
+        const res = csvRows.map((r: any) => {
             const idx = computeQuickIndices([r], s.weights, s.scenario);
             const v = verdictFrom(idx, s.thresholds);
             return { sku: r.SKU || r.sku, collection: r.collection || r.Collection, verdict: v, ...idx, mode: 'quick' };
@@ -21,7 +30,7 @@ export default function BatchPage() {
     async function runDeep(concurrency = 3) {
         setRunning(true);
         const s = getSettings();
-        const queue = rows.slice(0);
+        const queue = csvRows.slice(0);
         const results: any[] = [];
         async function worker() {
             while (queue.length) {
@@ -37,15 +46,24 @@ export default function BatchPage() {
     }
 
     function exportCsv() {
+        const s = getSettings();
+        const settingsHash = JSON.stringify(s).slice(0, 20); // Simple settings hash
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+
         const headers = ['sku', 'collection', 'verdict', 'demand', 'momentum', 'saturation', 'freshness', 'styleFit', 'mode', 'summary'];
         const lines = [headers.join(',')].concat(out.map(r => [
             r.sku, r.collection, r.verdict || '', r.indices?.demand ?? r.demand, r.indices?.momentum ?? r.momentum,
             r.indices?.saturation ?? r.saturation, r.indices?.freshness ?? r.freshness, r.indices?.styleFit ?? r.styleFit,
             (r.sources?.includes('gemini') ? 'deep' : 'quick'), `"${(r.summary || '').replace(/"/g, '""')}"`
         ].join(',')));
+
         const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = 'analysis.csv'; a.click(); URL.revokeObjectURL(url);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `analysis_${timestamp}_${settingsHash.replace(/[^a-zA-Z0-9]/g, '')}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
     }
 
     return (
@@ -56,7 +74,7 @@ export default function BatchPage() {
                 <button disabled={running} onClick={() => runDeep(3)} className="rounded bg-white/10 px-3 py-2">Run Deep</button>
                 <button disabled={!out.length} onClick={exportCsv} className="rounded bg-white/10 px-3 py-2">Export CSV</button>
             </div>
-            <div className="text-sm opacity-75">Rows loaded: {rows.length} • Results: {out.length}</div>
+            <div className="text-sm opacity-75">Rows loaded: {csvRows.length} • Results: {out.length}</div>
             <div className="overflow-auto border border-white/10 rounded">
                 <table className="w-full text-sm">
                     <thead><tr>

@@ -1,23 +1,53 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import type { Row, DeepResult } from '../types';
 import { getSettings } from '../lib/settings';
 import { computeQuickIndices, verdictFrom } from '../lib/verdict';
+import { getCsvRows, setCsvRows, subscribeCsv } from '../lib/csv-store';
+
+// Load persisted mode or use settings default
+function getLastMode(): 'quick' | 'deep' {
+    try {
+        const stored = localStorage.getItem('aba_last_mode');
+        if (stored && (stored === 'quick' || stored === 'deep')) {
+            return stored;
+        }
+    } catch { }
+    return getSettings().defaultMode;
+}
 
 const Analyze: React.FC = () => {
     const [input, setInput] = useState('');
-    const [mode, setMode] = useState<'quick' | 'deep'>(getSettings().defaultMode);
+    const [mode, setMode] = useState<'quick' | 'deep'>(getLastMode());
     const [result, setResult] = useState<DeepResult | null>(null);
-    const [noData, setNoData] = useState<boolean>(false);
+    const [csvRows, setCsvRowsLocal] = useState<any[]>(getCsvRows());
+    const [showBudgetBanner, setShowBudgetBanner] = useState(false);
+    const [showFallbackBanner, setShowFallbackBanner] = useState(false);
 
-    // CSV state
+    // CSV state  
     const [isLoading, setIsLoading] = useState(false);
     const [remaining, setRemaining] = useState(10000);
     const [showMockBanner, setShowMockBanner] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    // CSV state
-    const [rows, setRows] = useState<Row[]>([]);
     const [previewRows, setPreviewRows] = useState<Row[]>([]);
+
+    // Subscribe to CSV changes
+    useEffect(() => {
+        const unsubscribe = subscribeCsv((newRows) => {
+            setCsvRowsLocal(newRows);
+        });
+        return unsubscribe;
+    }, []);
+
+    // Persist mode changes
+    const handleModeChange = (newMode: 'quick' | 'deep') => {
+        setMode(newMode);
+        try {
+            localStorage.setItem('aba_last_mode', newMode);
+        } catch {
+            // Ignore storage errors
+        }
+    };
     const [missingHeaders, setMissingHeaders] = useState<string[]>([]);
     const [csvLoaded, setCsvLoaded] = useState(false);
     const [includedRowsCount, setIncludedRowsCount] = useState(0);
@@ -118,7 +148,7 @@ const Analyze: React.FC = () => {
         reader.onload = (e) => {
             const csvText = e.target?.result as string;
             const parsedRows = parseCSV(csvText);
-            setRows(parsedRows);
+            setCsvRows(parsedRows);
             setPreviewRows(parsedRows.slice(0, 200));
             setCsvLoaded(true);
         };
@@ -162,12 +192,14 @@ const Analyze: React.FC = () => {
 
         setIsLoading(true);
         setShowMockBanner(false);
+        setShowBudgetBanner(false);
+        setShowFallbackBanner(false);
         setErrorMessage(null);
 
         try {
             if (mode === 'quick') {
                 const s = getSettings();
-                const indices = computeQuickIndices(rows || [], s.weights, s.scenario);
+                const indices = computeQuickIndices(csvRows || [], s.weights, s.scenario);
                 const verdict = verdictFrom(indices, s.thresholds);
                 setResult({
                     summary: `Quick analysis verdict: ${verdict}.`,
@@ -175,11 +207,12 @@ const Analyze: React.FC = () => {
                     sources: ['quick', 'csv']
                 });
                 setShowMockBanner(false);
+                setShowBudgetBanner(false);
+                setShowFallbackBanner(false);
                 setIncludedRowsCount(0);
             } else {
-                const hasRows = Array.isArray(rows) && rows.length > 0;
-                setNoData(!hasRows);
-                const matchedRows = hasRows ? findMatchingRows(input, rows) : [];
+                const hasRows = Array.isArray(csvRows) && csvRows.length > 0;
+                const matchedRows = hasRows ? findMatchingRows(input, csvRows) : [];
                 setIncludedRowsCount(matchedRows.length);
 
                 const s = getSettings();
@@ -202,12 +235,16 @@ const Analyze: React.FC = () => {
                     };
                     setResult(fallbackMock);
                     setShowMockBanner(true);
+                    setShowFallbackBanner(true);
                 } else {
                     const data = await response.json();
                     setResult(data);
 
-                    // Legacy support: if server adds "confidence", surface it; mock banner driven by sources/includes
-                    setShowMockBanner(Array.isArray(data.sources) && data.sources.includes('mock'));
+                    // Set banner states based on response sources
+                    const sources = Array.isArray(data.sources) ? data.sources : [];
+                    setShowMockBanner(sources.includes('mock'));
+                    setShowFallbackBanner(sources.includes('fallback'));
+                    setShowBudgetBanner(sources.includes('budget'));
 
                     // Only decrement remaining on real success
                     if (data.mode === 'real') {
@@ -229,6 +266,7 @@ const Analyze: React.FC = () => {
             };
             setResult(fallbackMock);
             setShowMockBanner(true);
+            setShowFallbackBanner(true);
         } finally {
             setIsLoading(false);
         }
@@ -375,7 +413,7 @@ const Analyze: React.FC = () => {
 
                 {csvLoaded && (
                     <div>
-                        <p>Loaded {rows.length} rows. Showing first {previewRows.length}:</p>
+                        <p>Loaded {csvRows.length} rows. Showing first {previewRows.length}:</p>
                         <div className="csv-preview-container">
                             <table className="csv-preview-table">
                                 <thead>
@@ -405,7 +443,7 @@ const Analyze: React.FC = () => {
                 )}
             </div>
 
-            {!rows?.length && (
+            {!csvRows?.length && (
                 <div style={{ ...bannerStyle, border: '1px solid #facc15', backgroundColor: '#fef3c7', color: '#92400e', marginBottom: '20px', maxWidth: '600px' }}>
                     No CSV loaded — Deep will infer from general trend knowledge. Results may have lower confidence.
                     <button
@@ -417,7 +455,7 @@ const Analyze: React.FC = () => {
                                 const text = await res.text();
                                 // naive CSV parse (headers required)
                                 const parsedRows = parseCSV(text);
-                                setRows(parsedRows);
+                                setCsvRows(parsedRows);
                                 setCsvLoaded(true);
                                 setPreviewRows(parsedRows.slice(0, 5));
                                 setMissingHeaders([]);
@@ -446,7 +484,7 @@ const Analyze: React.FC = () => {
                     <span>Mode:</span>
                     <button
                         type="button"
-                        onClick={() => setMode('quick')}
+                        onClick={() => handleModeChange('quick')}
                         style={toggleButtonStyle(mode === 'quick')}
                         disabled={isLoading}
                     >
@@ -454,7 +492,7 @@ const Analyze: React.FC = () => {
                     </button>
                     <button
                         type="button"
-                        onClick={() => setMode('deep')}
+                        onClick={() => handleModeChange('deep')}
                         style={toggleButtonStyle(mode === 'deep')}
                         disabled={isLoading}
                     >
@@ -472,6 +510,18 @@ const Analyze: React.FC = () => {
                     {showMockBanner && (
                         <div style={bannerStyle}>
                             Using mock response (no API key present)
+                        </div>
+                    )}
+
+                    {showBudgetBanner && (
+                        <div style={{ ...bannerStyle, backgroundColor: '#ff9800', color: '#fff' }}>
+                            Daily budget limit reached - using mock response
+                        </div>
+                    )}
+
+                    {showFallbackBanner && !showMockBanner && !showBudgetBanner && (
+                        <div style={{ ...bannerStyle, backgroundColor: '#f44336', color: '#fff' }}>
+                            API error - fell back to mock response
                         </div>
                     )}
 

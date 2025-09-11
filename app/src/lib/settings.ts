@@ -31,7 +31,21 @@ const DEFAULTS: Settings = {
     defaultMode: 'deep',
 };
 
-let _settings: Settings = { ...DEFAULTS };
+// Load persisted settings or use defaults
+function loadPersistedSettings(): Settings {
+    try {
+        const stored = localStorage.getItem('aba_settings');
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            return { ...DEFAULTS, ...parsed };
+        }
+    } catch {
+        // Ignore parsing errors, use defaults
+    }
+    return { ...DEFAULTS };
+}
+
+let _settings: Settings = loadPersistedSettings();
 let _version = 0;
 
 type Sub = (s: Settings) => void;
@@ -40,7 +54,14 @@ const subs = new Set<Sub>();
 export function getSettings(): Settings { return _settings; }
 export function updateSettings(patch: Partial<Settings>) {
     _settings = { ..._settings, ...patch };
-    _version++; subs.forEach(fn => fn(_settings));
+    _version++;
+    // Persist to localStorage
+    try {
+        localStorage.setItem('aba_settings', JSON.stringify(_settings));
+    } catch {
+        // Ignore storage errors
+    }
+    subs.forEach(fn => fn(_settings));
 }
 export function subscribeSettings(fn: Sub) { subs.add(fn); return () => { subs.delete(fn); }; }
 export function getSettingsVersion() { return _version; }
