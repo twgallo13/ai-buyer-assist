@@ -10,6 +10,7 @@ const Analyze: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [remaining, setRemaining] = useState(10000);
     const [showMockBanner, setShowMockBanner] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     // CSV state
     const [rows, setRows] = useState<Row[]>([]);
@@ -158,6 +159,7 @@ const Analyze: React.FC = () => {
 
         setIsLoading(true);
         setShowMockBanner(false);
+        setErrorMessage(null);
 
         try {
             if (mode === 'Quick') {
@@ -171,26 +173,48 @@ const Analyze: React.FC = () => {
                 const matchedRows = findMatchingRows(input, rows);
                 setIncludedRowsCount(matchedRows.length);
 
-                const response = await fetch('http://localhost:3001/api/deep', {
+                const response = await fetch('/api/deep', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ query: input, rows: matchedRows }),
                 });
 
-                if (!response.ok) throw new Error('API request failed');
-
-                const data = await response.json();
-                setResult(data);
-
-                if (data.sources && data.sources.includes('mock')) {
+                if (!response.ok) {
+                    // Don't alert, show inline error instead
+                    setErrorMessage('Analysis failed. Falling back to mock.');
+                    
+                    // Use a fallback mock response
+                    const fallbackMock = {
+                        summary: 'Analysis failed. Falling back to mock.',
+                        indices: { demand: 50, momentum: 50, saturation: 50, freshness: 50, styleFit: 50 },
+                        sources: ['mock', 'fallback']
+                    };
+                    setResult(fallbackMock);
                     setShowMockBanner(true);
+                } else {
+                    const data = await response.json();
+                    setResult(data);
+
+                    if (data.sources && data.sources.includes('mock')) {
+                        setShowMockBanner(true);
+                    }
                 }
 
                 setRemaining(prev => Math.max(0, prev - 100));
             }
         } catch (error) {
             console.error('Analysis failed:', error);
-            alert('Analysis failed. Please try again.');
+            // Show inline error instead of alert
+            setErrorMessage('Analysis failed. Falling back to mock.');
+            
+            // Use a fallback mock response
+            const fallbackMock = {
+                summary: 'Network error. Falling back to mock.',
+                indices: { demand: 50, momentum: 50, saturation: 50, freshness: 50, styleFit: 50 },
+                sources: ['mock', 'fallback']
+            };
+            setResult(fallbackMock);
+            setShowMockBanner(true);
         } finally {
             setIsLoading(false);
         }
@@ -407,7 +431,33 @@ const Analyze: React.FC = () => {
                 <div style={{ ...sectionStyle, maxWidth: '600px' }}>
                     {showMockBanner && (
                         <div style={bannerStyle}>
-                            Using mock response (no key)
+                            Using mock response (no API key present)
+                        </div>
+                    )}
+
+                    {errorMessage && (
+                        <div style={{ 
+                            ...bannerStyle, 
+                            backgroundColor: '#f44336', 
+                            color: '#fff',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <span>{errorMessage}</span>
+                            <button
+                                onClick={() => setErrorMessage(null)}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#fff',
+                                    cursor: 'pointer',
+                                    fontSize: '18px',
+                                    padding: '0 5px'
+                                }}
+                            >
+                                ×
+                            </button>
                         </div>
                     )}
 
