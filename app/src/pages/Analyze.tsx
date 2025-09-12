@@ -463,35 +463,9 @@ const Analyze: React.FC = () => {
 
 
 
-    const indicesStyle: React.CSSProperties = {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-        gap: '15px',
-        margin: '20px 0'
-    };
 
-    const indexItemStyle: React.CSSProperties = {
-        backgroundColor: '#3a3a3a',
-        padding: '15px',
-        borderRadius: '4px',
-        textAlign: 'center'
-    };
 
-    const sourcesStyle: React.CSSProperties = {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '8px',
-        marginTop: '15px'
-    };
 
-    const sourceChipStyle: React.CSSProperties = {
-        backgroundColor: '#4CAF50',
-        color: '#000',
-        padding: '4px 12px',
-        borderRadius: '16px',
-        fontSize: '12px',
-        fontWeight: 'bold'
-    };
 
     return (
         <div style={containerStyle}>
@@ -885,7 +859,8 @@ const Analyze: React.FC = () => {
                 </form>
 
                 {result && (
-                    <div style={{ ...sectionStyle, maxWidth: '600px' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {/* Status Banners */}
                         {isSharedView && (
                             <div style={{ ...bannerStyle, backgroundColor: '#2196f3', color: '#fff' }}>
                                 Viewing a shared session (read-only)
@@ -948,177 +923,280 @@ const Analyze: React.FC = () => {
                             </div>
                         )}
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <h3>Analysis Result</h3>
+                        {/* Header Cards - Verdict & Confidence */}
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr auto',
+                            gap: '16px',
+                            marginBottom: '8px'
+                        }}>
+                            <div style={{
+                                backgroundColor: 'var(--card)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '12px',
+                                padding: '20px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px'
+                            }}>
+                                <div style={{
+                                    fontSize: '14px',
+                                    color: 'var(--muted)',
+                                    fontWeight: '500',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px'
+                                }}>
+                                    Decision
+                                </div>
+                                <div style={{
+                                    fontSize: '24px',
+                                    fontWeight: '700',
+                                    color: 'var(--text)',
+                                    lineHeight: '1.2'
+                                }}>
+                                    {result.summary}
+                                </div>
+                                {includedRowsCount > 0 && (
+                                    <div style={{
+                                        fontSize: '12px',
+                                        color: '#4CAF50',
+                                        marginTop: '4px'
+                                    }}>
+                                        Based on {includedRowsCount} data points
+                                    </div>
+                                )}
+                            </div>
+
+                            {'confidence' in result && result.confidence !== undefined && (
+                                <div style={{
+                                    backgroundColor: 'var(--card)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '12px',
+                                    padding: '20px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minWidth: '120px'
+                                }}>
+                                    <div style={{
+                                        fontSize: '14px',
+                                        color: 'var(--muted)',
+                                        fontWeight: '500',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px',
+                                        marginBottom: '8px'
+                                    }}>
+                                        Confidence
+                                    </div>
+                                    <div style={{
+                                        fontSize: '32px',
+                                        fontWeight: '700',
+                                        color: 'var(--accent)',
+                                        lineHeight: '1'
+                                    }}>
+                                        {Math.round(result.confidence)}%
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Mini Gauges for Indices */}
+                        {mode === 'deep' && result.indices && (
+                            <div style={{
+                                backgroundColor: 'var(--card)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '12px',
+                                padding: '20px'
+                            }}>
+                                <div style={{
+                                    fontSize: '14px',
+                                    color: 'var(--muted)',
+                                    fontWeight: '500',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                    marginBottom: '16px'
+                                }}>
+                                    Market Indices
+                                </div>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+                                    gap: '16px'
+                                }}>
+                                    {[
+                                        { key: 'demand', label: 'Demand', color: '#4CAF50' },
+                                        { key: 'momentum', label: 'Momentum', color: '#2196F3' },
+                                        { key: 'saturation', label: 'Saturation', color: '#FF5722' },
+                                        { key: 'freshness', label: 'Freshness', color: '#9C27B0' },
+                                        { key: 'styleFit', label: 'Style Fit', color: '#FF9800' }
+                                    ].map(({ key, label, color }) => {
+                                        const value = result.indices?.[key as keyof typeof result.indices] || 0;
+                                        const percentage = Math.max(0, Math.min(100, value));
+
+                                        return (
+                                            <div key={key} style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                gap: '8px'
+                                            }}>
+                                                {/* Mini circular gauge */}
+                                                <div style={{
+                                                    position: 'relative',
+                                                    width: '60px',
+                                                    height: '60px'
+                                                }}>
+                                                    <svg width="60" height="60" style={{ transform: 'rotate(-90deg)' }}>
+                                                        <circle
+                                                            cx="30"
+                                                            cy="30"
+                                                            r="25"
+                                                            fill="none"
+                                                            stroke="var(--border)"
+                                                            strokeWidth="6"
+                                                        />
+                                                        <circle
+                                                            cx="30"
+                                                            cy="30"
+                                                            r="25"
+                                                            fill="none"
+                                                            stroke={color}
+                                                            strokeWidth="6"
+                                                            strokeDasharray={`${2 * Math.PI * 25}`}
+                                                            strokeDashoffset={`${2 * Math.PI * 25 * (1 - percentage / 100)}`}
+                                                            strokeLinecap="round"
+                                                            style={{
+                                                                transition: 'stroke-dashoffset 0.8s ease-in-out'
+                                                            }}
+                                                        />
+                                                    </svg>
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: '50%',
+                                                        left: '50%',
+                                                        transform: 'translate(-50%, -50%)',
+                                                        fontSize: '16px',
+                                                        fontWeight: '700',
+                                                        color: 'var(--text)'
+                                                    }}>
+                                                        {value}
+                                                    </div>
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '12px',
+                                                    color: 'var(--muted)',
+                                                    textAlign: 'center',
+                                                    fontWeight: '500'
+                                                }}>
+                                                    {label}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Why Section */}
+                        {result?.explain && (
+                            <div style={{
+                                backgroundColor: 'var(--card)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '12px',
+                                padding: '20px'
+                            }}>
+                                <div style={{
+                                    fontSize: '14px',
+                                    color: 'var(--muted)',
+                                    fontWeight: '500',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                    marginBottom: '16px'
+                                }}>
+                                    Why this verdict?
+                                </div>
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '12px'
+                                }}>
+                                    {result.explain.factors.map((f, i) => (
+                                        <div key={i} style={{
+                                            display: 'flex',
+                                            gap: '12px',
+                                            alignItems: 'flex-start',
+                                            padding: '12px',
+                                            backgroundColor: 'var(--bg)',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border)'
+                                        }}>
+                                            <div style={{
+                                                width: '24px',
+                                                height: '24px',
+                                                borderRadius: '50%',
+                                                backgroundColor: f.impact === '+' ? '#4CAF50' : f.impact === '-' ? '#f44336' : '#9e9e9e',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: '#fff',
+                                                fontSize: '14px',
+                                                fontWeight: 'bold',
+                                                flexShrink: 0
+                                            }}>
+                                                {f.impact}
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{
+                                                    fontSize: '14px',
+                                                    fontWeight: '600',
+                                                    color: 'var(--text)',
+                                                    marginBottom: '4px'
+                                                }}>
+                                                    {f.label}
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '13px',
+                                                    color: 'var(--muted)',
+                                                    lineHeight: '1.4'
+                                                }}>
+                                                    {f.note}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Save Session Button */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            paddingTop: '8px'
+                        }}>
                             <button
                                 onClick={() => {
                                     const sessionId = saveSession(result);
                                     alert(`Session saved! ID: ${sessionId}`);
                                 }}
                                 style={{
-                                    padding: '8px 16px',
-                                    backgroundColor: '#6366f1',
+                                    padding: '12px 20px',
+                                    backgroundColor: 'var(--accent)',
                                     color: '#fff',
                                     border: 'none',
-                                    borderRadius: '4px',
+                                    borderRadius: '8px',
                                     cursor: 'pointer',
-                                    fontSize: '12px'
+                                    fontSize: '14px',
+                                    fontWeight: '500',
+                                    transition: 'opacity 0.2s ease'
                                 }}
+                                onMouseOver={(e) => (e.target as HTMLButtonElement).style.opacity = '0.9'}
+                                onMouseOut={(e) => (e.target as HTMLButtonElement).style.opacity = '1'}
                             >
                                 Save Session
                             </button>
                         </div>
-
-                        {includedRowsCount > 0 && (
-                            <p style={{ color: '#4CAF50', fontSize: '14px', marginBottom: '10px' }}>
-                                Included rows: {includedRowsCount}
-                            </p>
-                        )}
-
-                        <p style={{ marginBottom: '20px' }}>{result.summary}</p>
-
-                        {result?.explain && (
-                            <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '12px' }}>
-                                <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '12px' }}>
-                                    <div style={{ fontSize: '14px', opacity: 0.8, marginBottom: '8px' }}>Why this verdict?</div>
-                                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        {result.explain.factors.map((f, i) => (
-                                            <li key={i} style={{ fontSize: '14px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                                                <span style={{
-                                                    color: f.impact === '+' ? '#4CAF50' : f.impact === '-' ? '#f44336' : '#9e9e9e',
-                                                    fontWeight: 'bold',
-                                                    minWidth: '16px'
-                                                }}>
-                                                    {f.impact}
-                                                </span>
-                                                <span style={{ opacity: 0.9 }}>{f.label}</span>
-                                                <span style={{ opacity: 0.6, fontSize: '12px' }}>— {f.note}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </div>
-                        )}
-
-                        {'confidence' in result && result.confidence !== undefined && (
-                            <div style={{ marginBottom: '20px', fontSize: '14px', opacity: 0.8 }}>Confidence: {Math.round(result.confidence)}%</div>
-                        )}
-
-                        {mode === 'deep' && result.indices && (
-                            <>
-                                <h4>Market Indices</h4>
-                                <div style={indicesStyle}>
-                                    <div style={indexItemStyle}>
-                                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#4CAF50' }}>
-                                            {result.indices.demand || 0}
-                                        </div>
-                                        <div style={{ fontSize: '12px', opacity: 0.8 }}>Demand</div>
-                                    </div>
-                                    <div style={indexItemStyle}>
-                                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2196F3' }}>
-                                            {result.indices.momentum || 0}
-                                        </div>
-                                        <div style={{ fontSize: '12px', opacity: 0.8 }}>Momentum</div>
-                                    </div>
-                                    <div style={indexItemStyle}>
-                                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#FF5722' }}>
-                                            {result.indices.saturation || 0}
-                                        </div>
-                                        <div style={{ fontSize: '12px', opacity: 0.8 }}>Saturation</div>
-                                    </div>
-                                    <div style={indexItemStyle}>
-                                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#9C27B0' }}>
-                                            {result.indices.freshness || 0}
-                                        </div>
-                                        <div style={{ fontSize: '12px', opacity: 0.8 }}>Freshness</div>
-                                    </div>
-                                    <div style={indexItemStyle}>
-                                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#FF9800' }}>
-                                            {result.indices.styleFit || 0}
-                                        </div>
-                                        <div style={{ fontSize: '12px', opacity: 0.8 }}>Style Fit</div>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-
-                        {result.sources && (
-                            <div>
-                                <h4>Sources</h4>
-                                <div style={sourcesStyle}>
-                                    {result.sources.map((source: string, index: number) => (
-                                        <span key={index} style={sourceChipStyle}>
-                                            {source}
-                                        </span>
-                                    ))}
-                                    {result.sources.includes('trends') && (
-                                        <span style={{ ...sourceChipStyle, backgroundColor: '#2196f3' }}>
-                                            + External Signals
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {result?.citations?.length ? (
-                            <div className="mt-4 rounded-lg bg-[#14141a] p-4">
-                                <div className="text-sm opacity-70 mb-2">Citations</div>
-                                <ul className="space-y-1">
-                                    {result.citations.map((c, i) => (
-                                        <li key={i} className="text-sm">
-                                            <a className="underline hover:no-underline" href={c.url} target="_blank" rel="noreferrer">
-                                                {c.title}
-                                            </a>
-                                            <span className="ml-2 opacity-60">({c.source})</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        ) : null}
-
-                        {!isSharedView && (
-                            <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-                                <button
-                                    onClick={() => {
-                                        if (result?.runId) {
-                                            window.open(`/api/export?id=${result.runId}`, '_blank');
-                                        } else {
-                                            window.open('/api/export?type=analyze', '_blank');
-                                        }
-                                    }}
-                                    style={{
-                                        padding: '0.5rem 1rem',
-                                        backgroundColor: '#4f46e5',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '0.25rem',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Export CSV
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        if (result?.runId) {
-                                            const shareUrl = `${window.location.origin}${window.location.pathname}?run=${result.runId}`;
-                                            navigator.clipboard.writeText(shareUrl);
-                                            alert('Share link copied to clipboard!');
-                                        }
-                                    }}
-                                    disabled={!result?.runId}
-                                    style={{
-                                        padding: '0.5rem 1rem',
-                                        backgroundColor: result?.runId ? '#059669' : '#6b7280',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '0.25rem',
-                                        cursor: result?.runId ? 'pointer' : 'not-allowed'
-                                    }}
-                                >
-                                    Copy Share Link
-                                </button>
-                            </div>
-                        )}
                     </div>
                 )}
             </div>
@@ -1126,7 +1204,263 @@ const Analyze: React.FC = () => {
             {/* Right Rail - Evidence */}
             <div style={rightRailStyle}>
                 <h2 style={{ marginBottom: '20px' }}>Evidence</h2>
-                <p style={{ fontSize: '12px', color: 'var(--muted)' }}>Citations and evidence will go here...</p>
+
+                {result?.sources && (
+                    <div style={{
+                        backgroundColor: 'var(--card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '12px',
+                        padding: '16px',
+                        marginBottom: '16px'
+                    }}>
+                        <div style={{
+                            fontSize: '14px',
+                            color: 'var(--muted)',
+                            fontWeight: '500',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            marginBottom: '12px'
+                        }}>
+                            Data Sources
+                        </div>
+                        <div style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '8px'
+                        }}>
+                            {result.sources.map((source: string, index: number) => (
+                                <span key={index} style={{
+                                    backgroundColor: 'var(--accent)',
+                                    color: '#fff',
+                                    padding: '6px 12px',
+                                    borderRadius: '16px',
+                                    fontSize: '12px',
+                                    fontWeight: '500'
+                                }}>
+                                    {source}
+                                </span>
+                            ))}
+                            {result.sources.includes('trends') && (
+                                <span style={{
+                                    backgroundColor: '#2196f3',
+                                    color: '#fff',
+                                    padding: '6px 12px',
+                                    borderRadius: '16px',
+                                    fontSize: '12px',
+                                    fontWeight: '500'
+                                }}>
+                                    + External Signals
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {result?.citations?.length ? (
+                    <div style={{
+                        backgroundColor: 'var(--card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '12px',
+                        padding: '16px',
+                        marginBottom: '16px'
+                    }}>
+                        <div style={{
+                            fontSize: '14px',
+                            color: 'var(--muted)',
+                            fontWeight: '500',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            marginBottom: '12px'
+                        }}>
+                            Citations
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {result.citations.map((c, i) => (
+                                <div key={i} style={{
+                                    padding: '12px',
+                                    backgroundColor: 'var(--bg)',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border)'
+                                }}>
+                                    <a
+                                        href={c.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        style={{
+                                            color: 'var(--accent)',
+                                            textDecoration: 'none',
+                                            fontSize: '14px',
+                                            fontWeight: '500',
+                                            display: 'block',
+                                            marginBottom: '4px'
+                                        }}
+                                        onMouseOver={(e) => (e.target as HTMLAnchorElement).style.textDecoration = 'underline'}
+                                        onMouseOut={(e) => (e.target as HTMLAnchorElement).style.textDecoration = 'none'}
+                                    >
+                                        {c.title}
+                                    </a>
+                                    <div style={{
+                                        fontSize: '12px',
+                                        color: 'var(--muted)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px'
+                                    }}>
+                                        <span style={{
+                                            backgroundColor: 'var(--muted)',
+                                            color: 'var(--bg)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '10px',
+                                            fontWeight: '500',
+                                            textTransform: 'uppercase'
+                                        }}>
+                                            {c.source}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : null}
+
+                {csvIsValid && (
+                    <div style={{
+                        backgroundColor: 'var(--card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '12px',
+                        padding: '16px',
+                        marginBottom: '16px'
+                    }}>
+                        <div style={{
+                            fontSize: '14px',
+                            color: 'var(--muted)',
+                            fontWeight: '500',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            marginBottom: '12px'
+                        }}>
+                            CSV Analysis
+                        </div>
+                        <div style={{
+                            padding: '12px',
+                            backgroundColor: 'var(--bg)',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border)'
+                        }}>
+                            <div style={{
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                color: 'var(--text)',
+                                marginBottom: '4px'
+                            }}>
+                                Data Set Active
+                            </div>
+                            <div style={{
+                                fontSize: '12px',
+                                color: 'var(--muted)',
+                                lineHeight: '1.4'
+                            }}>
+                                Analysis includes competitive data from uploaded CSV file
+                            </div>
+                            {includedRowsCount > 0 && (
+                                <div style={{
+                                    fontSize: '12px',
+                                    color: '#4CAF50',
+                                    marginTop: '8px',
+                                    fontWeight: '500'
+                                }}>
+                                    {includedRowsCount} rows analyzed
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {result && !isSharedView && (
+                    <div style={{
+                        backgroundColor: 'var(--card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '12px',
+                        padding: '16px'
+                    }}>
+                        <div style={{
+                            fontSize: '14px',
+                            color: 'var(--muted)',
+                            fontWeight: '500',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            marginBottom: '12px'
+                        }}>
+                            Export & Share
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <button
+                                onClick={() => {
+                                    if (result?.runId) {
+                                        window.open(`/api/export?id=${result.runId}`, '_blank');
+                                    } else {
+                                        window.open('/api/export?type=analyze', '_blank');
+                                    }
+                                }}
+                                style={{
+                                    padding: '10px 16px',
+                                    backgroundColor: '#4f46e5',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    fontWeight: '500',
+                                    width: '100%'
+                                }}
+                            >
+                                Export CSV
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (result?.runId) {
+                                        const shareUrl = `${window.location.origin}${window.location.pathname}?run=${result.runId}`;
+                                        navigator.clipboard.writeText(shareUrl);
+                                        alert('Share link copied to clipboard!');
+                                    }
+                                }}
+                                disabled={!result?.runId}
+                                style={{
+                                    padding: '10px 16px',
+                                    backgroundColor: result?.runId ? '#059669' : '#6b7280',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: result?.runId ? 'pointer' : 'not-allowed',
+                                    fontSize: '13px',
+                                    fontWeight: '500',
+                                    width: '100%'
+                                }}
+                            >
+                                Copy Share Link
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {!result && (
+                    <div style={{
+                        backgroundColor: 'var(--card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{
+                            fontSize: '14px',
+                            color: 'var(--muted)',
+                            lineHeight: '1.5'
+                        }}>
+                            Run an analysis to see citations, data sources, and export options here
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
