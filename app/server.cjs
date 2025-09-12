@@ -325,10 +325,10 @@ app.post("/api/deep", async (req, res) => {
     const csvSize = Array.isArray(rows) ? rows.length : 0;
     const chosenModel = (typeof model === 'string' && model.trim()) ? model : MODEL_ID;
     const temp = Number.isFinite(Number(temperature)) ? Number(temperature) : 0.4;
-    
+
     // Handle new Query structure
-    const queryText = typeof query === 'string' ? query : 
-                     (query?.terms ? query.terms.join(' ') : '');
+    const queryText = typeof query === 'string' ? query :
+        (query?.terms ? query.terms.join(' ') : '');
     const filters = query?.filters || {};
     const horizonMonths = query?.horizonMonths || 6;
     const intent = query?.intent || 'question';
@@ -433,7 +433,7 @@ Keep it practical and honest. Higher "confidence" when CSV patterns are strong; 
             .filter(([_, values]) => Array.isArray(values) && values.length > 0)
             .map(([key, values]) => `${key}: ${values.join(', ')}`)
             .join('; ');
-            
+
         const user = [
             `Query: ${queryText || "(none)"}`,
             `Intent: ${intent}`,

@@ -1,22 +1,16 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import type { Row, Citation } from '../types';
-import type { AnalysisResult, Query, Indices } from '../lib/types';
+import type { Row } from '../types';
+import type { AnalysisResult } from '../lib/types';
 import { getSettings } from '../lib/settings';
 import { computeQuickIndices, verdictFrom, explainQuick } from '../lib/verdict';
-import { getCsvRows, subscribeCsv } from '../lib/csv-store';
+import { getCsvRows, setCsv, setCsvRows, subscribeCsv, getCsvValidation } from '../lib/csv-store';
 import { saveSession } from '../lib/sessions';
-import { 
-    FALLBACK_BRANDS, 
-    FALLBACK_COLLECTIONS, 
-    FALLBACK_CATEGORIES, 
-    FALLBACK_COLOR_FAMILIES, 
-    FALLBACK_GENDERS,
-    FALLBACK_CLASSES,
+import { validateCsv } from '../lib/csv-validate';
+import { uniqueValues, buildQuery, type QueryParts } from '../lib/query-builder';
+import {
     INTENT_OPTIONS,
     HORIZON_OPTIONS
-} from '../lib/fallback-taxonomy';
-
-// Load persisted mode or use settings default
+} from '../lib/fallback-taxonomy';// Load persisted mode or use settings default
 function getLastMode(): 'quick' | 'deep' {
     try {
         const stored = localStorage.getItem('aba_last_mode');
@@ -49,6 +43,10 @@ const Analyze: React.FC = () => {
     // Guided Query Builder state
     const [showQueryBuilder, setShowQueryBuilder] = useState(false);
     const [queryParts, setQueryParts] = useState<QueryParts>({});
+
+    // Dashboard state for v1.9.6
+    const [selectedIntent, setSelectedIntent] = useState<string>('question');
+    const [selectedHorizon, setSelectedHorizon] = useState<number>(6);
 
     // Memoized unique values for dropdowns
     const collections = useMemo(() => uniqueValues('Collection'), [csvRows]);
@@ -370,10 +368,32 @@ const Analyze: React.FC = () => {
 
     const containerStyle: React.CSSProperties = {
         minHeight: '100vh',
-        backgroundColor: '#1a1a1a',
-        color: '#ffffff',
-        padding: '20px',
+        backgroundColor: 'var(--bg)',
+        color: 'var(--text)',
+        display: 'flex',
         fontFamily: 'Arial, sans-serif'
+    };
+
+    const leftRailStyle: React.CSSProperties = {
+        width: '320px',
+        backgroundColor: 'var(--card)',
+        borderRight: '1px solid var(--border)',
+        padding: '20px',
+        overflowY: 'auto'
+    };
+
+    const centerStyle: React.CSSProperties = {
+        flex: 1,
+        padding: '20px',
+        overflowY: 'auto'
+    };
+
+    const rightRailStyle: React.CSSProperties = {
+        width: '320px',
+        backgroundColor: 'var(--card)',
+        borderLeft: '1px solid var(--border)',
+        padding: '20px',
+        overflowY: 'auto'
     };
 
     const headerStyle: React.CSSProperties = {
@@ -473,528 +493,639 @@ const Analyze: React.FC = () => {
 
     return (
         <div style={containerStyle}>
-            <div style={headerStyle}>
-                <h1>AI Buyer Assist</h1>
-                <p>Remaining: {remaining.toLocaleString()}</p>
-            </div>
+            {/* Left Rail - Filters */}
+            <div style={leftRailStyle}>
+                <h2 style={{ marginBottom: '20px' }}>Filters</h2>
 
-            {/* CSV Upload Section */}
-            <div style={{ ...sectionStyle, maxWidth: '800px' }}>
-                <h3>CSV Data (Optional)</h3>
-
-                {!csvLoaded && (
-                    <div style={bannerStyle}>
-                        Running without CSV – KPIs limited (CSV optional)
-                    </div>
-                )}
-
-                {csvLoaded && missingHeaders.length > 0 && (
-                    <div style={{ ...bannerStyle, backgroundColor: '#f44336', color: '#fff' }}>
-                        Missing: {missingHeaders.join(', ')}
-                    </div>
-                )}
-
-                <div className="file-input-wrapper">
-                    <input
-                        type="file"
-                        accept=".csv"
-                        onChange={handleFileUpload}
-                        className="file-input"
-                        id="csv-upload"
-                    />
-                    <label htmlFor="csv-upload" className="file-input-button">
-                        {csvLoaded ? 'Replace CSV' : 'Upload CSV'}
-                    </label>
-                </div>
-
-                {csvLoaded && (
-                    <div>
-                        <p>Loaded {csvRows.length} rows. Showing first {previewRows.length}:</p>
-                        <div className="csv-preview-container">
-                            <table className="csv-preview-table">
-                                <thead>
-                                    <tr>
-                                        <th>SKU</th><th>Product Name</th><th>Collection</th><th>Category</th>
-                                        <th>Class</th><th>Velocity/Day</th><th>ST28</th><th>ST90</th><th>Color Family</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {previewRows.map((row, index) => (
-                                        <tr key={index}>
-                                            <td>{row.sku}</td>
-                                            <td>{row.productName || '-'}</td>
-                                            <td>{row.collection || '-'}</td>
-                                            <td>{row.category || '-'}</td>
-                                            <td>{row.class || '-'}</td>
-                                            <td>{row.velocityUnitsPerDay ?? '-'}</td>
-                                            <td>{row.st28 ?? '-'}</td>
-                                            <td>{row.st90 ?? '-'}</td>
-                                            <td>{row.colorFamily || '-'}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {!csvRows?.length && (
-                <div style={{ ...bannerStyle, border: '1px solid #facc15', backgroundColor: '#fef3c7', color: '#92400e', marginBottom: '20px', maxWidth: '600px' }}>
-                    No CSV loaded — Deep will infer from general trend knowledge. Results may have lower confidence.
-                    <button
-                        type="button"
-                        style={{ marginLeft: '12px', textDecoration: 'underline', background: 'none', border: 'none', color: '#92400e', cursor: 'pointer' }}
-                        onClick={async () => {
-                            try {
-                                const res = await fetch('/sample-data.csv');
-                                const text = await res.text();
-                                // naive CSV parse (headers required)
-                                const parsedRows = parseCSV(text);
-                                setCsvRows(parsedRows);
-                                setCsvLoaded(true);
-                                setPreviewRows(parsedRows.slice(0, 5));
-                                setMissingHeaders([]);
-                            } catch (error) {
-                                console.error('Failed to load sample data:', error);
-                            }
-                        }}
-                    >
-                        Load sample data
-                    </button>
-                </div>
-            )}
-
-            {/* CSV Validation Banners */}
-            {validation && !validation.ok && (
-                <div style={{
-                    ...sectionStyle,
-                    maxWidth: '600px',
-                    backgroundColor: '#f44336',
-                    color: '#fff',
-                    marginBottom: '20px'
-                }}>
-                    <strong>CSV Missing Required Headers:</strong> Please upload a file with: {validation.issues
-                        .filter(i => i.type === 'missingHeader')
-                        .map(i => (i as any).header)
-                        .join(', ')}
-                </div>
-            )}
-
-            {hasWarnings && validation?.ok && (
-                <div style={{
-                    ...sectionStyle,
-                    maxWidth: '600px',
-                    backgroundColor: '#ff9800',
-                    color: '#fff',
-                    marginBottom: '20px'
-                }}>
-                    <strong>Data warnings ({validation.issues.length}):</strong> Some rows may have data quality issues.
-                </div>
-            )}
-
-            <form onSubmit={handleSubmit} style={{ ...sectionStyle, maxWidth: '600px' }}>
-                <h3>Analysis</h3>
-
-                {/* Guided Query Builder */}
-                <div style={{ marginBottom: '16px' }}>
-                    <button
-                        type="button"
-                        onClick={() => setShowQueryBuilder(!showQueryBuilder)}
-                        style={{
-                            backgroundColor: 'transparent',
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            color: '#f2f2f5',
-                            padding: '8px 12px',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            marginBottom: showQueryBuilder ? '12px' : '0'
-                        }}
-                    >
-                        {showQueryBuilder ? '▼' : '▶'} Guided Query Builder
-                    </button>
-
-                    {showQueryBuilder && (
-                        <div style={{
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: '4px',
-                            padding: '16px',
-                            backgroundColor: 'rgba(0,0,0,0.2)',
-                            marginBottom: '16px'
-                        }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                                <select
-                                    value={queryParts.collection || ''}
-                                    onChange={(e) => setQueryParts({ ...queryParts, collection: e.target.value || undefined })}
-                                    style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
-                                >
-                                    <option value="">Collection...</option>
-                                    {collections.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-
-                                <select
-                                    value={queryParts.category || ''}
-                                    onChange={(e) => setQueryParts({ ...queryParts, category: e.target.value || undefined })}
-                                    style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
-                                >
-                                    <option value="">Category...</option>
-                                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-
-                                <select
-                                    value={queryParts.colorFamily || ''}
-                                    onChange={(e) => setQueryParts({ ...queryParts, colorFamily: e.target.value || undefined })}
-                                    style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
-                                >
-                                    <option value="">Color...</option>
-                                    {colors.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-
-                                <select
-                                    value={queryParts.genderTarget || ''}
-                                    onChange={(e) => setQueryParts({ ...queryParts, genderTarget: e.target.value || undefined })}
-                                    style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
-                                >
-                                    <option value="">Gender...</option>
-                                    {genders.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                            </div>
-
-                            <input
-                                type="text"
-                                placeholder="Additional text (optional)"
-                                value={queryParts.text || ''}
-                                onChange={(e) => setQueryParts({ ...queryParts, text: e.target.value || undefined })}
-                                style={{ width: '100%', padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', marginBottom: '12px' }}
-                            />
-
+                {/* Intent Chips */}
+                <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>Intent</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {INTENT_OPTIONS.map(option => (
                             <button
-                                type="button"
-                                onClick={() => {
-                                    const query = buildQuery(queryParts);
-                                    setInput(query);
-                                }}
+                                key={option.value}
+                                onClick={() => setSelectedIntent(option.value)}
                                 style={{
-                                    backgroundColor: '#6366f1',
-                                    color: '#fff',
-                                    border: 'none',
-                                    padding: '8px 16px',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Compose Query
-                            </button>
-
-                            {/* Active Filter Chips */}
-                            <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                {Object.entries(queryParts).filter(([_, v]) => v).map(([key, value]) => (
-                                    <span
-                                        key={key}
-                                        style={{
-                                            backgroundColor: '#6366f1',
-                                            color: '#fff',
-                                            padding: '4px 8px',
-                                            borderRadius: '12px',
-                                            fontSize: '12px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '4px'
-                                        }}
-                                    >
-                                        {key}: {value}
-                                        <button
-                                            type="button"
-                                            onClick={() => setQueryParts({ ...queryParts, [key]: undefined })}
-                                            style={{
-                                                background: 'none',
-                                                border: 'none',
-                                                color: '#fff',
-                                                cursor: 'pointer',
-                                                fontSize: '14px'
-                                            }}
-                                        >
-                                            ×
-                                        </button>
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder='collection:"Jordan 1" or SKU'
-                    style={inputStyle}
-                    disabled={isLoading}
-                />
-
-                <div style={toggleStyle}>
-                    <span>Mode:</span>
-                    <button
-                        type="button"
-                        onClick={() => handleModeChange('quick')}
-                        style={toggleButtonStyle(mode === 'quick')}
-                        disabled={isLoading}
-                    >
-                        Quick
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => handleModeChange('deep')}
-                        style={toggleButtonStyle(mode === 'deep')}
-                        disabled={isLoading}
-                    >
-                        Deep
-                    </button>
-                </div>
-
-                <button type="submit" style={submitButtonStyle} disabled={isLoading || !input.trim() || !csvIsValid}>
-                    {isLoading ? 'Analyzing...' : `Run ${mode} Analysis`}
-                </button>
-            </form>
-
-            {result && (
-                <div style={{ ...sectionStyle, maxWidth: '600px' }}>
-                    {isSharedView && (
-                        <div style={{ ...bannerStyle, backgroundColor: '#2196f3', color: '#fff' }}>
-                            Viewing a shared session (read-only)
-                        </div>
-                    )}
-
-                    {showMockBanner && (
-                        <div style={bannerStyle}>
-                            Using mock response (no API key present)
-                        </div>
-                    )}
-
-                    {showBudgetBanner && (
-                        <div style={{ ...bannerStyle, backgroundColor: '#ff9800', color: '#fff' }}>
-                            Daily budget limit reached - using mock response
-                        </div>
-                    )}
-
-                    {showFallbackBanner && !showMockBanner && !showBudgetBanner && (
-                        <div style={{ ...bannerStyle, backgroundColor: '#f44336', color: '#fff' }}>
-                            API error - fell back to mock response
-                        </div>
-                    )}
-
-                    {showCacheBanner && (
-                        <div style={{ ...bannerStyle, backgroundColor: '#2196f3', color: '#fff' }}>
-                            From cache - no API call made
-                        </div>
-                    )}
-
-                    {showCapBanner && (
-                        <div style={{ ...bannerStyle, backgroundColor: '#ff9800', color: '#fff' }}>
-                            Daily AI budget cap reached. Showing conservative fallback.
-                        </div>
-                    )}
-
-                    {errorMessage && (
-                        <div style={{
-                            ...bannerStyle,
-                            backgroundColor: '#f44336',
-                            color: '#fff',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                        }}>
-                            <span>{errorMessage}</span>
-                            <button
-                                onClick={() => setErrorMessage(null)}
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    color: '#fff',
+                                    padding: '6px 12px',
+                                    borderRadius: '20px',
+                                    border: '1px solid var(--border)',
+                                    backgroundColor: selectedIntent === option.value ? 'var(--accent)' : 'var(--card)',
+                                    color: selectedIntent === option.value ? 'white' : 'var(--text)',
                                     cursor: 'pointer',
-                                    fontSize: '18px',
-                                    padding: '0 5px'
+                                    fontSize: '12px'
                                 }}
                             >
-                                ×
+                                {option.label}
                             </button>
-                        </div>
-                    )}
+                        ))}
+                    </div>
+                </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                        <h3>Analysis Result</h3>
+                {/* Horizon */}
+                <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>Horizon</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        {HORIZON_OPTIONS.map(option => (
+                            <button
+                                key={option.value}
+                                onClick={() => setSelectedHorizon(option.value)}
+                                style={{
+                                    padding: '6px 8px',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--border)',
+                                    backgroundColor: selectedHorizon === option.value ? 'var(--accent)' : 'var(--card)',
+                                    color: selectedHorizon === option.value ? 'white' : 'var(--text)',
+                                    cursor: 'pointer',
+                                    fontSize: '12px'
+                                }}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Mode Toggle */}
+                <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>Mode</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
                         <button
-                            onClick={() => {
-                                const sessionId = saveSession(result);
-                                alert(`Session saved! ID: ${sessionId}`);
-                            }}
+                            onClick={() => setMode('quick')}
                             style={{
-                                padding: '8px 16px',
-                                backgroundColor: '#6366f1',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '4px',
+                                flex: 1,
+                                padding: '8px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border)',
+                                backgroundColor: mode === 'quick' ? 'var(--accent)' : 'var(--card)',
+                                color: mode === 'quick' ? 'white' : 'var(--text)',
                                 cursor: 'pointer',
                                 fontSize: '12px'
                             }}
                         >
-                            Save Session
+                            Quick
+                        </button>
+                        <button
+                            onClick={() => setMode('deep')}
+                            style={{
+                                flex: 1,
+                                padding: '8px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border)',
+                                backgroundColor: mode === 'deep' ? 'var(--accent)' : 'var(--card)',
+                                color: mode === 'deep' ? 'white' : 'var(--text)',
+                                cursor: 'pointer',
+                                fontSize: '12px'
+                            }}
+                        >
+                            Deep
+                        </button>
+                    </div>
+                    {mode === 'deep' && (
+                        <div style={{ marginTop: '8px', padding: '8px', backgroundColor: 'var(--muted)', borderRadius: '4px', fontSize: '11px' }}>
+                            💰 Deep mode uses API budget
+                        </div>
+                    )}
+                </div>
+
+                {/* CSV Info */}
+                {csvRows.length === 0 && (
+                    <div style={{ padding: '12px', backgroundColor: 'var(--muted)', borderRadius: '6px', fontSize: '12px' }}>
+                        ℹ️ No CSV data loaded. Using fallback options.
+                    </div>
+                )}
+            </div>
+
+            {/* Center - Main Content */}
+            <div style={centerStyle}>
+                <div style={headerStyle}>
+                    <h1>AI Buyer Assist</h1>
+                    <p>Remaining: {remaining.toLocaleString()}</p>
+                </div>
+
+                {/* CSV Upload Section */}
+                <div style={{ ...sectionStyle, maxWidth: '800px' }}>
+                    <h3>CSV Data (Optional)</h3>
+
+                    {!csvLoaded && (
+                        <div style={bannerStyle}>
+                            Running without CSV – KPIs limited (CSV optional)
+                        </div>
+                    )}
+
+                    {csvLoaded && missingHeaders.length > 0 && (
+                        <div style={{ ...bannerStyle, backgroundColor: '#f44336', color: '#fff' }}>
+                            Missing: {missingHeaders.join(', ')}
+                        </div>
+                    )}
+
+                    <div className="file-input-wrapper">
+                        <input
+                            type="file"
+                            accept=".csv"
+                            onChange={handleFileUpload}
+                            className="file-input"
+                            id="csv-upload"
+                        />
+                        <label htmlFor="csv-upload" className="file-input-button">
+                            {csvLoaded ? 'Replace CSV' : 'Upload CSV'}
+                        </label>
+                    </div>
+
+                    {csvLoaded && (
+                        <div>
+                            <p>Loaded {csvRows.length} rows. Showing first {previewRows.length}:</p>
+                            <div className="csv-preview-container">
+                                <table className="csv-preview-table">
+                                    <thead>
+                                        <tr>
+                                            <th>SKU</th><th>Product Name</th><th>Collection</th><th>Category</th>
+                                            <th>Class</th><th>Velocity/Day</th><th>ST28</th><th>ST90</th><th>Color Family</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {previewRows.map((row, index) => (
+                                            <tr key={index}>
+                                                <td>{row.sku}</td>
+                                                <td>{row.productName || '-'}</td>
+                                                <td>{row.collection || '-'}</td>
+                                                <td>{row.category || '-'}</td>
+                                                <td>{row.class || '-'}</td>
+                                                <td>{row.velocityUnitsPerDay ?? '-'}</td>
+                                                <td>{row.st28 ?? '-'}</td>
+                                                <td>{row.st90 ?? '-'}</td>
+                                                <td>{row.colorFamily || '-'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {!csvRows?.length && (
+                    <div style={{ ...bannerStyle, border: '1px solid #facc15', backgroundColor: '#fef3c7', color: '#92400e', marginBottom: '20px', maxWidth: '600px' }}>
+                        No CSV loaded — Deep will infer from general trend knowledge. Results may have lower confidence.
+                        <button
+                            type="button"
+                            style={{ marginLeft: '12px', textDecoration: 'underline', background: 'none', border: 'none', color: '#92400e', cursor: 'pointer' }}
+                            onClick={async () => {
+                                try {
+                                    const res = await fetch('/sample-data.csv');
+                                    const text = await res.text();
+                                    // naive CSV parse (headers required)
+                                    const parsedRows = parseCSV(text);
+                                    setCsvRows(parsedRows);
+                                    setCsvLoaded(true);
+                                    setPreviewRows(parsedRows.slice(0, 5));
+                                    setMissingHeaders([]);
+                                } catch (error) {
+                                    console.error('Failed to load sample data:', error);
+                                }
+                            }}
+                        >
+                            Load sample data
+                        </button>
+                    </div>
+                )}
+
+                {/* CSV Validation Banners */}
+                {validation && !validation.ok && (
+                    <div style={{
+                        ...sectionStyle,
+                        maxWidth: '600px',
+                        backgroundColor: '#f44336',
+                        color: '#fff',
+                        marginBottom: '20px'
+                    }}>
+                        <strong>CSV Missing Required Headers:</strong> Please upload a file with: {validation.issues
+                            .filter(i => i.type === 'missingHeader')
+                            .map(i => (i as any).header)
+                            .join(', ')}
+                    </div>
+                )}
+
+                {hasWarnings && validation?.ok && (
+                    <div style={{
+                        ...sectionStyle,
+                        maxWidth: '600px',
+                        backgroundColor: '#ff9800',
+                        color: '#fff',
+                        marginBottom: '20px'
+                    }}>
+                        <strong>Data warnings ({validation.issues.length}):</strong> Some rows may have data quality issues.
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} style={{ ...sectionStyle, maxWidth: '600px' }}>
+                    <h3>Analysis</h3>
+
+                    {/* Guided Query Builder */}
+                    <div style={{ marginBottom: '16px' }}>
+                        <button
+                            type="button"
+                            onClick={() => setShowQueryBuilder(!showQueryBuilder)}
+                            style={{
+                                backgroundColor: 'transparent',
+                                border: '1px solid rgba(255,255,255,0.2)',
+                                color: '#f2f2f5',
+                                padding: '8px 12px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                marginBottom: showQueryBuilder ? '12px' : '0'
+                            }}
+                        >
+                            {showQueryBuilder ? '▼' : '▶'} Guided Query Builder
+                        </button>
+
+                        {showQueryBuilder && (
+                            <div style={{
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '4px',
+                                padding: '16px',
+                                backgroundColor: 'rgba(0,0,0,0.2)',
+                                marginBottom: '16px'
+                            }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+                                    <select
+                                        value={queryParts.collection || ''}
+                                        onChange={(e) => setQueryParts({ ...queryParts, collection: e.target.value || undefined })}
+                                        style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
+                                    >
+                                        <option value="">Collection...</option>
+                                        {collections.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+
+                                    <select
+                                        value={queryParts.category || ''}
+                                        onChange={(e) => setQueryParts({ ...queryParts, category: e.target.value || undefined })}
+                                        style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
+                                    >
+                                        <option value="">Category...</option>
+                                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+
+                                    <select
+                                        value={queryParts.colorFamily || ''}
+                                        onChange={(e) => setQueryParts({ ...queryParts, colorFamily: e.target.value || undefined })}
+                                        style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
+                                    >
+                                        <option value="">Color...</option>
+                                        {colors.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+
+                                    <select
+                                        value={queryParts.genderTarget || ''}
+                                        onChange={(e) => setQueryParts({ ...queryParts, genderTarget: e.target.value || undefined })}
+                                        style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
+                                    >
+                                        <option value="">Gender...</option>
+                                        {genders.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+
+                                <input
+                                    type="text"
+                                    placeholder="Additional text (optional)"
+                                    value={queryParts.text || ''}
+                                    onChange={(e) => setQueryParts({ ...queryParts, text: e.target.value || undefined })}
+                                    style={{ width: '100%', padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', marginBottom: '12px' }}
+                                />
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const query = buildQuery(queryParts);
+                                        setInput(query);
+                                    }}
+                                    style={{
+                                        backgroundColor: '#6366f1',
+                                        color: '#fff',
+                                        border: 'none',
+                                        padding: '8px 16px',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Compose Query
+                                </button>
+
+                                {/* Active Filter Chips */}
+                                <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                    {Object.entries(queryParts).filter(([_, v]) => v).map(([key, value]) => (
+                                        <span
+                                            key={key}
+                                            style={{
+                                                backgroundColor: '#6366f1',
+                                                color: '#fff',
+                                                padding: '4px 8px',
+                                                borderRadius: '12px',
+                                                fontSize: '12px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px'
+                                            }}
+                                        >
+                                            {key}: {value}
+                                            <button
+                                                type="button"
+                                                onClick={() => setQueryParts({ ...queryParts, [key]: undefined })}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: '#fff',
+                                                    cursor: 'pointer',
+                                                    fontSize: '14px'
+                                                }}
+                                            >
+                                                ×
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <input
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder='collection:"Jordan 1" or SKU'
+                        style={inputStyle}
+                        disabled={isLoading}
+                    />
+
+                    <div style={toggleStyle}>
+                        <span>Mode:</span>
+                        <button
+                            type="button"
+                            onClick={() => handleModeChange('quick')}
+                            style={toggleButtonStyle(mode === 'quick')}
+                            disabled={isLoading}
+                        >
+                            Quick
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleModeChange('deep')}
+                            style={toggleButtonStyle(mode === 'deep')}
+                            disabled={isLoading}
+                        >
+                            Deep
                         </button>
                     </div>
 
-                    {includedRowsCount > 0 && (
-                        <p style={{ color: '#4CAF50', fontSize: '14px', marginBottom: '10px' }}>
-                            Included rows: {includedRowsCount}
-                        </p>
-                    )}
+                    <button type="submit" style={submitButtonStyle} disabled={isLoading || !input.trim() || !csvIsValid}>
+                        {isLoading ? 'Analyzing...' : `Run ${mode} Analysis`}
+                    </button>
+                </form>
 
-                    <p style={{ marginBottom: '20px' }}>{result.summary}</p>
+                {result && (
+                    <div style={{ ...sectionStyle, maxWidth: '600px' }}>
+                        {isSharedView && (
+                            <div style={{ ...bannerStyle, backgroundColor: '#2196f3', color: '#fff' }}>
+                                Viewing a shared session (read-only)
+                            </div>
+                        )}
 
-                    {result?.explain && (
-                        <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '12px' }}>
-                            <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '12px' }}>
-                                <div style={{ fontSize: '14px', opacity: 0.8, marginBottom: '8px' }}>Why this verdict?</div>
-                                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    {result.explain.factors.map((f, i) => (
-                                        <li key={i} style={{ fontSize: '14px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                                            <span style={{
-                                                color: f.impact === '+' ? '#4CAF50' : f.impact === '-' ? '#f44336' : '#9e9e9e',
-                                                fontWeight: 'bold',
-                                                minWidth: '16px'
-                                            }}>
-                                                {f.impact}
-                                            </span>
-                                            <span style={{ opacity: 0.9 }}>{f.label}</span>
-                                            <span style={{ opacity: 0.6, fontSize: '12px' }}>— {f.note}</span>
+                        {showMockBanner && (
+                            <div style={bannerStyle}>
+                                Using mock response (no API key present)
+                            </div>
+                        )}
+
+                        {showBudgetBanner && (
+                            <div style={{ ...bannerStyle, backgroundColor: '#ff9800', color: '#fff' }}>
+                                Daily budget limit reached - using mock response
+                            </div>
+                        )}
+
+                        {showFallbackBanner && !showMockBanner && !showBudgetBanner && (
+                            <div style={{ ...bannerStyle, backgroundColor: '#f44336', color: '#fff' }}>
+                                API error - fell back to mock response
+                            </div>
+                        )}
+
+                        {showCacheBanner && (
+                            <div style={{ ...bannerStyle, backgroundColor: '#2196f3', color: '#fff' }}>
+                                From cache - no API call made
+                            </div>
+                        )}
+
+                        {showCapBanner && (
+                            <div style={{ ...bannerStyle, backgroundColor: '#ff9800', color: '#fff' }}>
+                                Daily AI budget cap reached. Showing conservative fallback.
+                            </div>
+                        )}
+
+                        {errorMessage && (
+                            <div style={{
+                                ...bannerStyle,
+                                backgroundColor: '#f44336',
+                                color: '#fff',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}>
+                                <span>{errorMessage}</span>
+                                <button
+                                    onClick={() => setErrorMessage(null)}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#fff',
+                                        cursor: 'pointer',
+                                        fontSize: '18px',
+                                        padding: '0 5px'
+                                    }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <h3>Analysis Result</h3>
+                            <button
+                                onClick={() => {
+                                    const sessionId = saveSession(result);
+                                    alert(`Session saved! ID: ${sessionId}`);
+                                }}
+                                style={{
+                                    padding: '8px 16px',
+                                    backgroundColor: '#6366f1',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontSize: '12px'
+                                }}
+                            >
+                                Save Session
+                            </button>
+                        </div>
+
+                        {includedRowsCount > 0 && (
+                            <p style={{ color: '#4CAF50', fontSize: '14px', marginBottom: '10px' }}>
+                                Included rows: {includedRowsCount}
+                            </p>
+                        )}
+
+                        <p style={{ marginBottom: '20px' }}>{result.summary}</p>
+
+                        {result?.explain && (
+                            <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '12px' }}>
+                                <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '12px' }}>
+                                    <div style={{ fontSize: '14px', opacity: 0.8, marginBottom: '8px' }}>Why this verdict?</div>
+                                    <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        {result.explain.factors.map((f, i) => (
+                                            <li key={i} style={{ fontSize: '14px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                                <span style={{
+                                                    color: f.impact === '+' ? '#4CAF50' : f.impact === '-' ? '#f44336' : '#9e9e9e',
+                                                    fontWeight: 'bold',
+                                                    minWidth: '16px'
+                                                }}>
+                                                    {f.impact}
+                                                </span>
+                                                <span style={{ opacity: 0.9 }}>{f.label}</span>
+                                                <span style={{ opacity: 0.6, fontSize: '12px' }}>— {f.note}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        )}
+
+                        {'confidence' in result && result.confidence !== undefined && (
+                            <div style={{ marginBottom: '20px', fontSize: '14px', opacity: 0.8 }}>Confidence: {Math.round(result.confidence)}%</div>
+                        )}
+
+                        {mode === 'deep' && result.indices && (
+                            <>
+                                <h4>Market Indices</h4>
+                                <div style={indicesStyle}>
+                                    <div style={indexItemStyle}>
+                                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#4CAF50' }}>
+                                            {result.indices.demand || 0}
+                                        </div>
+                                        <div style={{ fontSize: '12px', opacity: 0.8 }}>Demand</div>
+                                    </div>
+                                    <div style={indexItemStyle}>
+                                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2196F3' }}>
+                                            {result.indices.momentum || 0}
+                                        </div>
+                                        <div style={{ fontSize: '12px', opacity: 0.8 }}>Momentum</div>
+                                    </div>
+                                    <div style={indexItemStyle}>
+                                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#FF5722' }}>
+                                            {result.indices.saturation || 0}
+                                        </div>
+                                        <div style={{ fontSize: '12px', opacity: 0.8 }}>Saturation</div>
+                                    </div>
+                                    <div style={indexItemStyle}>
+                                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#9C27B0' }}>
+                                            {result.indices.freshness || 0}
+                                        </div>
+                                        <div style={{ fontSize: '12px', opacity: 0.8 }}>Freshness</div>
+                                    </div>
+                                    <div style={indexItemStyle}>
+                                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#FF9800' }}>
+                                            {result.indices.styleFit || 0}
+                                        </div>
+                                        <div style={{ fontSize: '12px', opacity: 0.8 }}>Style Fit</div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {result.sources && (
+                            <div>
+                                <h4>Sources</h4>
+                                <div style={sourcesStyle}>
+                                    {result.sources.map((source: string, index: number) => (
+                                        <span key={index} style={sourceChipStyle}>
+                                            {source}
+                                        </span>
+                                    ))}
+                                    {result.sources.includes('trends') && (
+                                        <span style={{ ...sourceChipStyle, backgroundColor: '#2196f3' }}>
+                                            + External Signals
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {result?.citations?.length ? (
+                            <div className="mt-4 rounded-lg bg-[#14141a] p-4">
+                                <div className="text-sm opacity-70 mb-2">Citations</div>
+                                <ul className="space-y-1">
+                                    {result.citations.map((c, i) => (
+                                        <li key={i} className="text-sm">
+                                            <a className="underline hover:no-underline" href={c.url} target="_blank" rel="noreferrer">
+                                                {c.title}
+                                            </a>
+                                            <span className="ml-2 opacity-60">({c.source})</span>
                                         </li>
                                     ))}
                                 </ul>
                             </div>
-                        </div>
-                    )}
+                        ) : null}
 
-                    {'confidence' in result && result.confidence !== undefined && (
-                        <div style={{ marginBottom: '20px', fontSize: '14px', opacity: 0.8 }}>Confidence: {Math.round(result.confidence)}%</div>
-                    )}
-
-                    {mode === 'deep' && result.indices && (
-                        <>
-                            <h4>Market Indices</h4>
-                            <div style={indicesStyle}>
-                                <div style={indexItemStyle}>
-                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#4CAF50' }}>
-                                        {result.indices.demand || 0}
-                                    </div>
-                                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Demand</div>
-                                </div>
-                                <div style={indexItemStyle}>
-                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2196F3' }}>
-                                        {result.indices.momentum || 0}
-                                    </div>
-                                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Momentum</div>
-                                </div>
-                                <div style={indexItemStyle}>
-                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#FF5722' }}>
-                                        {result.indices.saturation || 0}
-                                    </div>
-                                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Saturation</div>
-                                </div>
-                                <div style={indexItemStyle}>
-                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#9C27B0' }}>
-                                        {result.indices.freshness || 0}
-                                    </div>
-                                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Freshness</div>
-                                </div>
-                                <div style={indexItemStyle}>
-                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#FF9800' }}>
-                                        {result.indices.styleFit || 0}
-                                    </div>
-                                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Style Fit</div>
-                                </div>
+                        {!isSharedView && (
+                            <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                    onClick={() => {
+                                        if (result?.runId) {
+                                            window.open(`/api/export?id=${result.runId}`, '_blank');
+                                        } else {
+                                            window.open('/api/export?type=analyze', '_blank');
+                                        }
+                                    }}
+                                    style={{
+                                        padding: '0.5rem 1rem',
+                                        backgroundColor: '#4f46e5',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '0.25rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Export CSV
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (result?.runId) {
+                                            const shareUrl = `${window.location.origin}${window.location.pathname}?run=${result.runId}`;
+                                            navigator.clipboard.writeText(shareUrl);
+                                            alert('Share link copied to clipboard!');
+                                        }
+                                    }}
+                                    disabled={!result?.runId}
+                                    style={{
+                                        padding: '0.5rem 1rem',
+                                        backgroundColor: result?.runId ? '#059669' : '#6b7280',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '0.25rem',
+                                        cursor: result?.runId ? 'pointer' : 'not-allowed'
+                                    }}
+                                >
+                                    Copy Share Link
+                                </button>
                             </div>
-                        </>
-                    )}
+                        )}
+                    </div>
+                )}
+            </div>
 
-                    {result.sources && (
-                        <div>
-                            <h4>Sources</h4>
-                            <div style={sourcesStyle}>
-                                {result.sources.map((source: string, index: number) => (
-                                    <span key={index} style={sourceChipStyle}>
-                                        {source}
-                                    </span>
-                                ))}
-                                {result.sources.includes('trends') && (
-                                    <span style={{ ...sourceChipStyle, backgroundColor: '#2196f3' }}>
-                                        + External Signals
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {result?.citations?.length ? (
-                        <div className="mt-4 rounded-lg bg-[#14141a] p-4">
-                            <div className="text-sm opacity-70 mb-2">Citations</div>
-                            <ul className="space-y-1">
-                                {result.citations.map((c, i) => (
-                                    <li key={i} className="text-sm">
-                                        <a className="underline hover:no-underline" href={c.url} target="_blank" rel="noreferrer">
-                                            {c.title}
-                                        </a>
-                                        <span className="ml-2 opacity-60">({c.source})</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    ) : null}
-
-                    {!isSharedView && (
-                        <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-                            <button
-                                onClick={() => {
-                                    if (result?.runId) {
-                                        window.open(`/api/export?id=${result.runId}`, '_blank');
-                                    } else {
-                                        window.open('/api/export?type=analyze', '_blank');
-                                    }
-                                }}
-                                style={{
-                                    padding: '0.5rem 1rem',
-                                    backgroundColor: '#4f46e5',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '0.25rem',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Export CSV
-                            </button>
-                            <button
-                                onClick={() => {
-                                    if (result?.runId) {
-                                        const shareUrl = `${window.location.origin}${window.location.pathname}?run=${result.runId}`;
-                                        navigator.clipboard.writeText(shareUrl);
-                                        alert('Share link copied to clipboard!');
-                                    }
-                                }}
-                                disabled={!result?.runId}
-                                style={{
-                                    padding: '0.5rem 1rem',
-                                    backgroundColor: result?.runId ? '#059669' : '#6b7280',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '0.25rem',
-                                    cursor: result?.runId ? 'pointer' : 'not-allowed'
-                                }}
-                            >
-                                Copy Share Link
-                            </button>
-                        </div>
-                    )}
-                </div>
-            )}
+            {/* Right Rail - Evidence */}
+            <div style={rightRailStyle}>
+                <h2 style={{ marginBottom: '20px' }}>Evidence</h2>
+                <p style={{ fontSize: '12px', color: 'var(--muted)' }}>Citations and evidence will go here...</p>
+            </div>
         </div>
     );
 };
