@@ -16,12 +16,26 @@ export type Explain = {
 export type Citation = { title: string; url: string; source: string };
 
 export type AnalysisResult = {
-    summary: string;
-    indices: Indices;
-    verdict?: 'Go' | 'Hold' | 'Skip';
-    sources: string[];          // e.g. ['csv','quick'] or ['gemini']
-    confidence?: number;        // 0..100 when deep
-    explain?: Explain;
-    timestamp?: string;         // ISO
+    verdict: 'Go' | 'Hold' | 'Skip';
+    demand: number;
+    momentum: number;
+    saturation: number;
+    freshness: number;
+    styleFit: number;
+    confidence?: number;
+    summary?: string;
     citations?: Citation[];
+    sources?: string[];
+    timestamp?: number;
+    indices?: Indices;  // Keep for backward compatibility
+    explain?: Explain;
+    runId?: string;     // For sharing/export v1.9
+};
+
+export type SavedRun = {
+    id: string;
+    timestamp: number;
+    query: string;
+    mode: 'quick' | 'deep';
+    result: AnalysisResult;
 };

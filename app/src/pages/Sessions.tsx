@@ -94,7 +94,7 @@ export default function SessionsPage() {
                                 opacity: 0.8,
                                 marginBottom: '8px'
                             }}>
-                                Sources: {s.sources.join(', ')}
+                                Sources: {(s.sources || []).join(', ')}
                             </div>
 
                             {s.indices && (
@@ -155,6 +155,40 @@ export default function SessionsPage() {
                                 gap: '8px',
                                 justifyContent: 'flex-end'
                             }}>
+                                <button
+                                    style={{
+                                        fontSize: '12px',
+                                        padding: '4px 8px',
+                                        backgroundColor: '#4f46e5',
+                                        border: 'none',
+                                        color: '#fff',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer'
+                                    }}
+                                    onClick={() => {
+                                        window.open(`/api/export?id=${s.id}`, '_blank');
+                                    }}
+                                >
+                                    Export
+                                </button>
+                                <button
+                                    style={{
+                                        fontSize: '12px',
+                                        padding: '4px 8px',
+                                        backgroundColor: '#059669',
+                                        border: 'none',
+                                        color: '#fff',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer'
+                                    }}
+                                    onClick={() => {
+                                        const shareUrl = `${window.location.origin}/analyze?run=${s.id}`;
+                                        navigator.clipboard.writeText(shareUrl);
+                                        alert('Share link copied to clipboard!');
+                                    }}
+                                >
+                                    Copy Link
+                                </button>
                                 <button
                                     style={{
                                         fontSize: '12px',

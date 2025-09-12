@@ -49,22 +49,40 @@ export default function BatchPage() {
     }
 
     function exportCsv() {
-        const s = getSettings();
-        const settingsHash = JSON.stringify(s).slice(0, 20); // Simple settings hash
-        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        const timestamp = new Date().toISOString().slice(0, 10);
 
-        const headers = ['sku', 'collection', 'verdict', 'demand', 'momentum', 'saturation', 'freshness', 'styleFit', 'mode', 'summary'];
-        const lines = [headers.join(',')].concat(out.map(r => [
-            r.sku, r.collection, r.verdict || '', r.indices?.demand ?? r.demand, r.indices?.momentum ?? r.momentum,
-            r.indices?.saturation ?? r.saturation, r.indices?.freshness ?? r.freshness, r.indices?.styleFit ?? r.styleFit,
-            (r.sources?.includes('gemini') ? 'deep' : 'quick'), `"${(r.summary || '').replace(/"/g, '""')}"`
-        ].join(',')));
+        // Use same format as server export
+        const headers = 'timestamp,query,mode,verdict,demand,momentum,saturation,freshness,styleFit,confidence,sources';
+        const rows = out.map(r => {
+            const csvEscape = (str: any) => {
+                if (typeof str !== 'string') str = String(str || '');
+                if (str.includes('"') || str.includes(',') || str.includes('\n')) {
+                    return '"' + str.replace(/"/g, '""') + '"';
+                }
+                return str;
+            };
 
-        const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+            return [
+                new Date().toISOString(),
+                csvEscape(r.sku || ''),
+                r.sources?.includes('gemini') ? 'deep' : 'quick',
+                csvEscape(r.verdict || 'Hold'),
+                r.indices?.demand ?? r.demand ?? 50,
+                r.indices?.momentum ?? r.momentum ?? 50,
+                r.indices?.saturation ?? r.saturation ?? 50,
+                r.indices?.freshness ?? r.freshness ?? 50,
+                r.indices?.styleFit ?? r.styleFit ?? 50,
+                r.confidence ?? 50,
+                csvEscape((r.sources || []).join(';'))
+            ].join(',');
+        });
+
+        const csvContent = headers + '\n' + rows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `analysis_${timestamp}_${settingsHash.replace(/[^a-zA-Z0-9]/g, '')}.csv`;
+        a.download = `ai-buyer-batch-${timestamp}.csv`;
         a.click();
         URL.revokeObjectURL(url);
     }

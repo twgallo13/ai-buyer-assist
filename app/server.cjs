@@ -31,6 +31,29 @@ let USAGE = { date: today(), calls: 0, blocked: 0, cacheHits: 0, lastResetAt: Da
 const CACHE = new Map(); // key -> { data, ts }
 const CACHE_TTL_MS = ONE_DAY;
 
+// v1.9 Export & Usage + Shareable Sessions
+let usage = { day: new Date().toISOString().slice(0, 10), deepCalls: 0, quickCalls: 0 };
+let runs = []; // array of {id,timestamp,query,mode,result} (cap at last 500)
+
+function generateId() {
+    return Math.random().toString(36).substring(2, 15);
+}
+
+function csvEscape(str) {
+    if (typeof str !== 'string') str = String(str || '');
+    if (str.includes('"') || str.includes(',') || str.includes('\n')) {
+        return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+}
+
+function rolloverUsageIfNeeded() {
+    const currentDay = new Date().toISOString().slice(0, 10);
+    if (usage.day !== currentDay) {
+        usage = { day: currentDay, deepCalls: 0, quickCalls: 0 };
+    }
+}
+
 function rolloverIfNeeded() {
     if (USAGE.date !== today()) {
         USAGE = { date: today(), calls: 0, blocked: 0, cacheHits: 0, lastResetAt: Date.now() };
@@ -46,7 +69,18 @@ app.use(express.json({ limit: "1mb" }));
 
 // Health
 app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, keyPresent: true, version: "v1.8" });
+    rolloverUsageIfNeeded();
+    res.json({
+        ok: true,
+        keyPresent: true,
+        version: "v1.9",
+        usage: {
+            day: usage.day,
+            deepCalls: usage.deepCalls,
+            quickCalls: usage.quickCalls,
+            budget: Number(process.env.API_DAILY_BUDGET || '500')
+        }
+    });
 });
 
 // Usage endpoints
@@ -77,6 +111,117 @@ app.get('/api/trends', async (req, res) => {
         return res.json({ ok: true, ...out });
     } catch (e) {
         return res.json({ ok: true, items: [], sources: [], tookMs: 0 });
+    }
+});
+
+// v1.9 New endpoints
+app.get('/api/usage', (req, res) => {
+    rolloverUsageIfNeeded();
+    res.json({
+        ok: true,
+        day: usage.day,
+        deepCalls: usage.deepCalls,
+        quickCalls: usage.quickCalls,
+        budget: Number(process.env.API_DAILY_BUDGET || '500')
+    });
+});
+
+app.get('/api/runs/:id', (req, res) => {
+    try {
+        const id = req.params.id;
+        const run = runs.find(r => r.id === id);
+        if (!run) {
+            return res.status(404).json({ ok: false, error: 'Run not found' });
+        }
+        res.json({ ok: true, run });
+    } catch (e) {
+        res.status(200).json({ ok: false, error: 'Failed to fetch run' });
+    }
+});
+
+app.post('/api/quick', (req, res) => {
+    try {
+        rolloverUsageIfNeeded();
+        const { query, result } = req.body || {};
+
+        const run = {
+            id: generateId(),
+            timestamp: Date.now(),
+            query: query || '',
+            mode: 'quick',
+            result: result || {}
+        };
+
+        runs.unshift(run);
+        if (runs.length > 500) runs.pop();
+        usage.quickCalls++;
+
+        res.json({ ok: true, id: run.id });
+    } catch (e) {
+        res.status(200).json({ ok: false, error: 'Failed to save quick run' });
+    }
+});
+
+app.get('/api/export', (req, res) => {
+    try {
+        const { type, id } = req.query;
+        const timestamp = new Date().toISOString();
+
+        if (id) {
+            // Export single run by ID
+            const run = runs.find(r => r.id === id);
+            if (!run) {
+                return res.status(404).json({ ok: false, error: 'Run not found' });
+            }
+
+            const header = 'timestamp,query,mode,verdict,demand,momentum,saturation,freshness,styleFit,confidence,sources\n';
+            const row = [
+                new Date(run.timestamp).toISOString(),
+                csvEscape(run.query),
+                run.mode,
+                csvEscape(run.result.verdict || 'Hold'),
+                run.result.demand || 50,
+                run.result.momentum || 50,
+                run.result.saturation || 50,
+                run.result.freshness || 50,
+                run.result.styleFit || 50,
+                run.result.confidence || 50,
+                csvEscape((run.result.sources || []).join(';'))
+            ].join(',') + '\n';
+
+            res.setHeader('Content-Type', 'text/csv');
+            res.setHeader('Content-Disposition', `attachment; filename="ai-buyer-export-${timestamp.slice(0, 10)}.csv"`);
+            res.send(header + row);
+        } else if (type === 'batch') {
+            return res.status(400).json({ ok: false, error: 'Batch export not implemented server-side yet. Use client-side export.' });
+        } else {
+            // Export most recent run
+            if (runs.length === 0) {
+                return res.status(400).json({ ok: false, error: 'No runs available to export' });
+            }
+
+            const run = runs[0];
+            const header = 'timestamp,query,mode,verdict,demand,momentum,saturation,freshness,styleFit,confidence,sources\n';
+            const row = [
+                new Date(run.timestamp).toISOString(),
+                csvEscape(run.query),
+                run.mode,
+                csvEscape(run.result.verdict || 'Hold'),
+                run.result.demand || 50,
+                run.result.momentum || 50,
+                run.result.saturation || 50,
+                run.result.freshness || 50,
+                run.result.styleFit || 50,
+                run.result.confidence || 50,
+                csvEscape((run.result.sources || []).join(';'))
+            ].join(',') + '\n';
+
+            res.setHeader('Content-Type', 'text/csv');
+            res.setHeader('Content-Disposition', `attachment; filename="ai-buyer-export-${timestamp.slice(0, 10)}.csv"`);
+            res.send(header + row);
+        }
+    } catch (e) {
+        res.status(200).json({ ok: false, error: 'Export failed' });
     }
 });
 
@@ -194,6 +339,33 @@ app.post("/api/deep", async (req, res) => {
     // Check daily cap
     if (USAGE.calls >= CAP) {
         USAGE.blocked++;
+
+        // Save capped run for v1.9 export/sharing
+        rolloverUsageIfNeeded();
+        const runId = generateId();
+        const run = {
+            id: runId,
+            timestamp: Date.now(),
+            query: query || '',
+            mode: 'deep',
+            result: {
+                verdict: 'Hold',
+                demand: 50,
+                momentum: 50,
+                saturation: 50,
+                freshness: 50,
+                styleFit: 50,
+                confidence: 30,
+                summary: 'Daily AI budget cap reached. Showing conservative fallback.',
+                sources: ['cap'],
+                timestamp: Date.now()
+            }
+        };
+
+        runs.unshift(run);
+        if (runs.length > 500) runs.pop();
+        usage.deepCalls++;
+
         return res.json({
             ok: true,
             capped: true,
@@ -202,7 +374,8 @@ app.post("/api/deep", async (req, res) => {
             summary: 'Daily AI budget cap reached. Showing conservative fallback.',
             confidence: 30,
             sources: ['cap'],
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            runId: runId
         });
     }
 
@@ -330,6 +503,36 @@ Keep it practical and honest. Higher "confidence" when CSV patterns are strong; 
             responseObj.citations = trendOut.items.map(({ title, url, source }) => ({ title, url, source }));
             responseObj.sources = Array.from(new Set([...(responseObj.sources || []), 'trends']));
         }
+
+        // Save run for v1.9 export/sharing
+        rolloverUsageIfNeeded();
+        const runId = generateId();
+        const run = {
+            id: runId,
+            timestamp: Date.now(),
+            query: query || '',
+            mode: 'deep',
+            result: {
+                verdict: responseObj.verdict || 'Hold',
+                demand: responseObj.indices?.demand || 50,
+                momentum: responseObj.indices?.momentum || 50,
+                saturation: responseObj.indices?.saturation || 50,
+                freshness: responseObj.indices?.freshness || 50,
+                styleFit: responseObj.indices?.styleFit || 50,
+                confidence: responseObj.confidence,
+                summary: responseObj.summary,
+                citations: responseObj.citations,
+                sources: responseObj.sources,
+                timestamp: Date.now()
+            }
+        };
+
+        runs.unshift(run);
+        if (runs.length > 500) runs.pop();
+        usage.deepCalls++;
+
+        // Add run ID to response for sharing
+        responseObj.runId = runId;
 
         // Store in cache
         CACHE.set(key, { data: responseObj, ts: Date.now() });

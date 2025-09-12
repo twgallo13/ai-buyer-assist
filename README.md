@@ -98,10 +98,36 @@ TRENDS_TIMEOUT_MS=4000      # Request timeout in milliseconds
 - Works without extra API keys (stub provider enabled by default)
 - Graceful fallback - analysis continues even if trends fail
 
+### Export & Usage & Shareable Links (v1.9)
+- **CSV Export**: Single-run and batch analysis export with consistent column format
+- **Usage Meter**: Real-time header display showing Deep calls vs budget with color-coded alerts
+- **Shareable Sessions**: Generate permanent links to analysis results via ?run=<id>
+- **Server-side Runs Storage**: All analysis results stored with unique IDs for sharing/export
+
+#### Usage Behavior
+- Header meter polls `/api/usage` every 20 seconds
+- Shows "Deep: X / Budget" with green (under budget) or red (at/over budget)
+- Budget configurable via `API_DAILY_BUDGET` environment variable (default: 500)
+
+#### Export Features
+- **Single Export**: "Export CSV" button downloads one-row CSV for current analysis
+- **Batch Export**: Client-side CSV generation for batch results with multiple rows
+- **Consistent Format**: timestamp,query,mode,verdict,demand,momentum,saturation,freshness,styleFit,confidence,sources
+- **Download Names**: `ai-buyer-export-YYYY-MM-DD.csv` or `ai-buyer-batch-YYYY-MM-DD.csv`
+
+#### Shareable Links
+- "Copy Share Link" creates URLs like `?run=abc123` for permanent access
+- Shared views show "Viewing a shared session (read-only)" banner
+- Links work across sessions and browser instances
+- Sessions page includes export and share buttons for each saved analysis
+
 ## API Endpoints
 
-- `GET /api/health` - Health check
+- `GET /api/health` - Health check with usage statistics
 - `POST /api/deep` - Deep analysis with caching and rate limiting
-- `GET /api/usage` - Usage statistics
+- `GET /api/usage` - Usage statistics (deepCalls, quickCalls, budget)
 - `POST /api/usage/reset` - Reset usage counters (development only)
 - `GET /api/trends` - External trend signals and citations
+- `GET /api/runs/:id` - Retrieve saved analysis run by ID
+- `POST /api/quick` - Save quick analysis run (for completeness)
+- `GET /api/export` - Export analysis results as CSV (single or batch)

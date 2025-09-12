@@ -28,6 +28,7 @@ const Analyze: React.FC = () => {
     const [showFallbackBanner, setShowFallbackBanner] = useState(false);
     const [showCacheBanner, setShowCacheBanner] = useState(false);
     const [showCapBanner, setShowCapBanner] = useState(false);
+    const [isSharedView, setIsSharedView] = useState(false);
 
     // CSV state  
     const [isLoading, setIsLoading] = useState(false);
@@ -50,6 +51,27 @@ const Analyze: React.FC = () => {
     // CSV validation
     const validation = getCsvValidation();
     const csvIsValid = validation?.ok !== false;
+
+    // Check for shared run on load
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const runId = urlParams.get('run');
+        if (runId) {
+            setIsSharedView(true);
+            fetch(`/api/runs/${runId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.ok && data.run) {
+                        setInput(data.run.query);
+                        setMode(data.run.mode);
+                        setResult(data.run.result);
+                    }
+                })
+                .catch(() => {
+                    // Handle error silently
+                });
+        }
+    }, []);
     const hasWarnings = validation && validation.issues.length > 0;
 
     // Subscribe to CSV changes
@@ -245,12 +267,17 @@ const Analyze: React.FC = () => {
                 const verdict = verdictFrom(indices, s.thresholds);
                 const explain = explainQuick(csvRows || [], s.weights, s.scenario);
                 const result: AnalysisResult = {
+                    verdict,
+                    demand: indices.demand,
+                    momentum: indices.momentum,
+                    saturation: indices.saturation,
+                    freshness: indices.freshness,
+                    styleFit: indices.styleFit,
                     summary: `Quick analysis verdict: ${verdict}.`,
                     indices,
-                    verdict,
                     sources: ['csv', 'quick'],
                     explain,
-                    timestamp: new Date().toISOString()
+                    timestamp: Date.now()
                 };
                 setResult(result);
                 setShowMockBanner(false);
@@ -277,7 +304,12 @@ const Analyze: React.FC = () => {
 
                     // Use a fallback mock response
                     const fallbackMock = {
-                        mode: 'mock-fallback' as const,
+                        verdict: 'Hold' as const,
+                        demand: 50,
+                        momentum: 50,
+                        saturation: 50,
+                        freshness: 50,
+                        styleFit: 50,
                         summary: 'Analysis failed. Falling back to mock.',
                         indices: { demand: 50, momentum: 50, saturation: 50, freshness: 50, styleFit: 50 },
                         sources: ['mock', 'fallback']
@@ -310,7 +342,12 @@ const Analyze: React.FC = () => {
 
             // Use a fallback mock response
             const fallbackMock = {
-                mode: 'mock-fallback' as const,
+                verdict: 'Hold' as const,
+                demand: 50,
+                momentum: 50,
+                saturation: 50,
+                freshness: 50,
+                styleFit: 50,
                 summary: 'Network error. Falling back to mock.',
                 indices: { demand: 50, momentum: 50, saturation: 50, freshness: 50, styleFit: 50 },
                 sources: ['mock', 'fallback']
@@ -715,6 +752,12 @@ const Analyze: React.FC = () => {
 
             {result && (
                 <div style={{ ...sectionStyle, maxWidth: '600px' }}>
+                    {isSharedView && (
+                        <div style={{ ...bannerStyle, backgroundColor: '#2196f3', color: '#fff' }}>
+                            Viewing a shared session (read-only)
+                        </div>
+                    )}
+
                     {showMockBanner && (
                         <div style={bannerStyle}>
                             Using mock response (no API key present)
@@ -898,6 +941,50 @@ const Analyze: React.FC = () => {
                             </ul>
                         </div>
                     ) : null}
+
+                    {!isSharedView && (
+                        <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+                            <button
+                                onClick={() => {
+                                    if (result?.runId) {
+                                        window.open(`/api/export?id=${result.runId}`, '_blank');
+                                    } else {
+                                        window.open('/api/export?type=analyze', '_blank');
+                                    }
+                                }}
+                                style={{
+                                    padding: '0.5rem 1rem',
+                                    backgroundColor: '#4f46e5',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '0.25rem',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Export CSV
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (result?.runId) {
+                                        const shareUrl = `${window.location.origin}${window.location.pathname}?run=${result.runId}`;
+                                        navigator.clipboard.writeText(shareUrl);
+                                        alert('Share link copied to clipboard!');
+                                    }
+                                }}
+                                disabled={!result?.runId}
+                                style={{
+                                    padding: '0.5rem 1rem',
+                                    backgroundColor: result?.runId ? '#059669' : '#6b7280',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '0.25rem',
+                                    cursor: result?.runId ? 'pointer' : 'not-allowed'
+                                }}
+                            >
+                                Copy Share Link
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
