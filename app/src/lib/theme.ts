@@ -12,8 +12,8 @@ export function setStoredTheme(mode: ThemeMode) {
 }
 
 export function applyTheme(mode: ThemeMode) {
-    const body = document.body;
-    body.setAttribute('data-theme', mode);
+    const root = document.documentElement;
+    root.setAttribute('data-theme', mode);
 }
 
 export function initTheme() {

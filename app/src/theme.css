@@ -1,9 +1,9 @@
 /* Theme Variables */
-body[data-theme="light"],
-body:not([data-theme]) {
-    --bg: #f7f5f1;
+:root[data-theme="light"],
+:root:not([data-theme]) {
+    --bg: #f7f7f5;
     --card: #ffffff;
-    --text: #101014;
+    --text: #0f1222;
     --muted: #6b7280;
     --accent: #6366f1;
     --border: #e5e7eb;
@@ -14,7 +14,7 @@ body:not([data-theme]) {
     --space: 12px;
 }
 
-body[data-theme="dark"] {
+:root[data-theme="dark"] {
     --bg: #0b0b0f;
     --card: #14141a;
     --text: #f2f2f5;
@@ -29,22 +29,25 @@ body[data-theme="dark"] {
 }
 
 /* Base Styles */
-html,
-body,
-#root {
+html {
     height: 100%;
-    background: var(--bg);
-    color: var(--text);
 }
 
 body {
-    background-color: var(--bg);
-    color: var(--text);
-    transition: background-color 0.2s ease, color 0.2s ease;
+    height: 100%;
     margin: 0;
     font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
     line-height: 1.5;
     font-weight: 400;
+    background: var(--bg);
+    color: var(--text);
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#root {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
 }
 
 /* Global Component Styles */
