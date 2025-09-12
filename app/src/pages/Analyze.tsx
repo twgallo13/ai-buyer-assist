@@ -26,6 +26,8 @@ const Analyze: React.FC = () => {
     const [csvRows, setCsvRowsLocal] = useState<any[]>(getCsvRows());
     const [showBudgetBanner, setShowBudgetBanner] = useState(false);
     const [showFallbackBanner, setShowFallbackBanner] = useState(false);
+    const [showCacheBanner, setShowCacheBanner] = useState(false);
+    const [showCapBanner, setShowCapBanner] = useState(false);
 
     // CSV state  
     const [isLoading, setIsLoading] = useState(false);
@@ -38,13 +40,13 @@ const Analyze: React.FC = () => {
     // Guided Query Builder state
     const [showQueryBuilder, setShowQueryBuilder] = useState(false);
     const [queryParts, setQueryParts] = useState<QueryParts>({});
-    
+
     // Memoized unique values for dropdowns
     const collections = useMemo(() => uniqueValues('Collection'), [csvRows]);
     const categories = useMemo(() => uniqueValues('Category'), [csvRows]);
     const colors = useMemo(() => uniqueValues('Color Family'), [csvRows]);
     const genders = useMemo(() => uniqueValues('Gender Target'), [csvRows]);
-    
+
     // CSV validation
     const validation = getCsvValidation();
     const csvIsValid = validation?.ok !== false;
@@ -185,7 +187,7 @@ const Analyze: React.FC = () => {
             const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
             const parsedRows = parseCSV(csvText);
             const validation = validateCsv(headers, parsedRows);
-            
+
             setCsv(parsedRows, headers, validation);
             setPreviewRows(parsedRows.slice(0, 200));
             setCsvLoaded(true);
@@ -232,6 +234,8 @@ const Analyze: React.FC = () => {
         setShowMockBanner(false);
         setShowBudgetBanner(false);
         setShowFallbackBanner(false);
+        setShowCacheBanner(false);
+        setShowCapBanner(false);
         setErrorMessage(null);
 
         try {
@@ -252,6 +256,8 @@ const Analyze: React.FC = () => {
                 setShowMockBanner(false);
                 setShowBudgetBanner(false);
                 setShowFallbackBanner(false);
+                setShowCacheBanner(false);
+                setShowCapBanner(false);
                 setIncludedRowsCount(0);
             } else {
                 const hasRows = Array.isArray(csvRows) && csvRows.length > 0;
@@ -262,7 +268,7 @@ const Analyze: React.FC = () => {
                 const response = await fetch('/api/deep', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: input, rows: matchedRows, model: s.model, temperature: s.temperature }),
+                    body: JSON.stringify({ query: input, rows: matchedRows, model: s.model, temperature: s.temperature, settings: s }),
                 });
 
                 if (!response.ok) {
@@ -288,6 +294,8 @@ const Analyze: React.FC = () => {
                     setShowMockBanner(sources.includes('mock'));
                     setShowFallbackBanner(sources.includes('fallback'));
                     setShowBudgetBanner(sources.includes('budget'));
+                    setShowCacheBanner(sources.includes('cache'));
+                    setShowCapBanner(sources.includes('cap'));
 
                     // Only decrement remaining on real success
                     if (data.mode === 'real') {
@@ -514,12 +522,12 @@ const Analyze: React.FC = () => {
 
             {/* CSV Validation Banners */}
             {validation && !validation.ok && (
-                <div style={{ 
-                    ...sectionStyle, 
-                    maxWidth: '600px', 
-                    backgroundColor: '#f44336', 
-                    color: '#fff', 
-                    marginBottom: '20px' 
+                <div style={{
+                    ...sectionStyle,
+                    maxWidth: '600px',
+                    backgroundColor: '#f44336',
+                    color: '#fff',
+                    marginBottom: '20px'
                 }}>
                     <strong>CSV Missing Required Headers:</strong> Please upload a file with: {validation.issues
                         .filter(i => i.type === 'missingHeader')
@@ -527,14 +535,14 @@ const Analyze: React.FC = () => {
                         .join(', ')}
                 </div>
             )}
-            
+
             {hasWarnings && validation?.ok && (
-                <div style={{ 
-                    ...sectionStyle, 
-                    maxWidth: '600px', 
-                    backgroundColor: '#ff9800', 
-                    color: '#fff', 
-                    marginBottom: '20px' 
+                <div style={{
+                    ...sectionStyle,
+                    maxWidth: '600px',
+                    backgroundColor: '#ff9800',
+                    color: '#fff',
+                    marginBottom: '20px'
                 }}>
                     <strong>Data warnings ({validation.issues.length}):</strong> Some rows may have data quality issues.
                 </div>
@@ -542,7 +550,7 @@ const Analyze: React.FC = () => {
 
             <form onSubmit={handleSubmit} style={{ ...sectionStyle, maxWidth: '600px' }}>
                 <h3>Analysis</h3>
-                
+
                 {/* Guided Query Builder */}
                 <div style={{ marginBottom: '16px' }}>
                     <button
@@ -561,7 +569,7 @@ const Analyze: React.FC = () => {
                     >
                         {showQueryBuilder ? '▼' : '▶'} Guided Query Builder
                     </button>
-                    
+
                     {showQueryBuilder && (
                         <div style={{
                             border: '1px solid rgba(255,255,255,0.1)',
@@ -579,7 +587,7 @@ const Analyze: React.FC = () => {
                                     <option value="">Collection...</option>
                                     {collections.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
-                                
+
                                 <select
                                     value={queryParts.category || ''}
                                     onChange={(e) => setQueryParts({ ...queryParts, category: e.target.value || undefined })}
@@ -588,7 +596,7 @@ const Analyze: React.FC = () => {
                                     <option value="">Category...</option>
                                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
-                                
+
                                 <select
                                     value={queryParts.colorFamily || ''}
                                     onChange={(e) => setQueryParts({ ...queryParts, colorFamily: e.target.value || undefined })}
@@ -597,7 +605,7 @@ const Analyze: React.FC = () => {
                                     <option value="">Color...</option>
                                     {colors.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
-                                
+
                                 <select
                                     value={queryParts.genderTarget || ''}
                                     onChange={(e) => setQueryParts({ ...queryParts, genderTarget: e.target.value || undefined })}
@@ -607,7 +615,7 @@ const Analyze: React.FC = () => {
                                     {genders.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
                             </div>
-                            
+
                             <input
                                 type="text"
                                 placeholder="Additional text (optional)"
@@ -615,7 +623,7 @@ const Analyze: React.FC = () => {
                                 onChange={(e) => setQueryParts({ ...queryParts, text: e.target.value || undefined })}
                                 style={{ width: '100%', padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', marginBottom: '12px' }}
                             />
-                            
+
                             <button
                                 type="button"
                                 onClick={() => {
@@ -633,7 +641,7 @@ const Analyze: React.FC = () => {
                             >
                                 Compose Query
                             </button>
-                            
+
                             {/* Active Filter Chips */}
                             <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                 {Object.entries(queryParts).filter(([_, v]) => v).map(([key, value]) => (
@@ -722,6 +730,18 @@ const Analyze: React.FC = () => {
                     {showFallbackBanner && !showMockBanner && !showBudgetBanner && (
                         <div style={{ ...bannerStyle, backgroundColor: '#f44336', color: '#fff' }}>
                             API error - fell back to mock response
+                        </div>
+                    )}
+
+                    {showCacheBanner && (
+                        <div style={{ ...bannerStyle, backgroundColor: '#2196f3', color: '#fff' }}>
+                            From cache - no API call made
+                        </div>
+                    )}
+
+                    {showCapBanner && (
+                        <div style={{ ...bannerStyle, backgroundColor: '#ff9800', color: '#fff' }}>
+                            Daily AI budget cap reached. Showing conservative fallback.
                         </div>
                     )}
 

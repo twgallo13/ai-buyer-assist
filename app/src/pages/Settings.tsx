@@ -36,8 +36,8 @@ export default function SettingsPage() {
             <section className="space-y-2">
                 <h3 className="font-medium">Buyer Presets</h3>
                 <p className="text-sm opacity-70">Presets update weights & thresholds; you can still tweak manually.</p>
-                <select 
-                    className="mt-1 w-full rounded bg-black/30 p-2" 
+                <select
+                    className="mt-1 w-full rounded bg-black/30 p-2"
                     onChange={e => {
                         if (e.target.value) {
                             applyPreset(e.target.value as BuyerPresetKey);

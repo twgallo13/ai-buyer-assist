@@ -5,9 +5,10 @@ import ComparePage from './pages/Compare'
 import BatchPage from './pages/Batch'
 import SettingsPage from './pages/Settings'
 import SessionsPage from './pages/Sessions'
+import UsagePage from './pages/Usage'
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<'analyze' | 'trendradar' | 'compare' | 'batch' | 'settings' | 'sessions'>('analyze');
+  const [currentPage, setCurrentPage] = useState<'analyze' | 'trendradar' | 'compare' | 'batch' | 'settings' | 'sessions' | 'usage'>('analyze');
 
   const navButtonStyle = (isActive: boolean) => ({
     padding: '0.5rem 1rem',
@@ -60,6 +61,12 @@ function App() {
           >
             Sessions
           </button>
+          <button
+            onClick={() => setCurrentPage('usage')}
+            style={navButtonStyle(currentPage === 'usage')}
+          >
+            Usage
+          </button>
         </div>
       </nav>
 
@@ -69,6 +76,7 @@ function App() {
       {currentPage === 'batch' && <BatchPage />}
       {currentPage === 'settings' && <SettingsPage />}
       {currentPage === 'sessions' && <SessionsPage />}
+      {currentPage === 'usage' && <UsagePage />}
     </div>
   );
 }

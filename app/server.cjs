@@ -4,6 +4,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const crypto = require("crypto");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const app = express();
@@ -15,14 +16,29 @@ if (!process.env.GEMINI_API_KEY) {
     process.exit(1);
 }
 
-// Budget cap (dev: in-memory)
-let callsToday = 0;
-let day = new Date().toDateString();
-function withinCap(max) {
-    const nowDay = new Date().toDateString();
-    if (nowDay !== day) { day = nowDay; callsToday = 0; }
-    if (callsToday >= max) return false;
-    callsToday++; return true;
+// v1.7 Budget & Ops: Usage tracking, caching, and rate caps
+function today() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+function stableKey(obj) {
+    return crypto.createHash('sha1').update(JSON.stringify(obj)).digest('hex');
+}
+
+const ONE_DAY = 24 * 60 * 60 * 1000;
+const CAP = Number(process.env.DAILY_CAP || 1000);
+let USAGE = { date: today(), calls: 0, blocked: 0, cacheHits: 0, lastResetAt: Date.now() };
+const CACHE = new Map(); // key -> { data, ts }
+const CACHE_TTL_MS = ONE_DAY;
+
+function rolloverIfNeeded() {
+    if (USAGE.date !== today()) {
+        USAGE = { date: today(), calls: 0, blocked: 0, cacheHits: 0, lastResetAt: Date.now() };
+        // soft clear cache daily
+        for (const [k, v] of CACHE.entries()) {
+            if ((Date.now() - v.ts) > CACHE_TTL_MS) CACHE.delete(k);
+        }
+    }
 }
 
 app.use(cors({ origin: true, credentials: true }));
@@ -30,7 +46,27 @@ app.use(express.json({ limit: "1mb" }));
 
 // Health
 app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, keyPresent: true, version: "v1.0" });
+    res.json({ ok: true, keyPresent: true, version: "v1.7" });
+});
+
+// Usage endpoints
+app.get('/api/usage', (req, res) => {
+    rolloverIfNeeded();
+    res.json({
+        date: USAGE.date,
+        calls: USAGE.calls,
+        blocked: USAGE.blocked,
+        cacheHits: USAGE.cacheHits,
+        cap: CAP,
+        cacheSize: CACHE.size
+    });
+});
+
+app.post('/api/usage/reset', (req, res) => {
+    rolloverIfNeeded();
+    USAGE = { date: today(), calls: 0, blocked: 0, cacheHits: 0, lastResetAt: Date.now() };
+    CACHE.clear();
+    res.json({ ok: true, resetAt: USAGE.lastResetAt });
 });
 
 // --- Helpers ---
@@ -71,18 +107,33 @@ const MODEL_ID = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
 // --- Deep analysis ---
 app.post("/api/deep", async (req, res) => {
-    const { query, rows, model, temperature, reasoningLevel } = req.body || {};
+    const { query, rows, model, temperature, reasoningLevel, settings } = req.body || {};
     const csvSize = Array.isArray(rows) ? rows.length : 0;
     const chosenModel = (typeof model === 'string' && model.trim()) ? model : MODEL_ID;
     const temp = Number.isFinite(Number(temperature)) ? Number(temperature) : 0.4;
 
-    // Budget cap check
-    const cap = Number(process.env.BUDGET_CAP || 0) || 500;
-    if (!withinCap(cap)) {
-        return res.status(200).json({
-            summary: "Budget cap reached — returning safe fallback.",
-            indices: { demand: 55, momentum: 55, saturation: 45, freshness: 50, styleFit: 60 },
-            sources: ["fallback", "cap"]
+    rolloverIfNeeded();
+
+    // Check cache first
+    const key = stableKey({ query, settings, mode: 'deep' });
+    const hit = CACHE.get(key);
+    if (hit && (Date.now() - hit.ts) < CACHE_TTL_MS) {
+        USAGE.cacheHits++;
+        return res.json({ ...hit.data, sources: Array.from(new Set([...(hit.data.sources || []), 'cache'])) });
+    }
+
+    // Check daily cap
+    if (USAGE.calls >= CAP) {
+        USAGE.blocked++;
+        return res.json({
+            ok: true,
+            capped: true,
+            verdict: 'Hold',
+            indices: { demand: 50, momentum: 50, saturation: 50, freshness: 50, styleFit: 50 },
+            summary: 'Daily AI budget cap reached. Showing conservative fallback.',
+            confidence: 30,
+            sources: ['cap'],
+            timestamp: new Date().toISOString()
         });
     }
 
@@ -181,6 +232,9 @@ Keep it practical and honest. Higher "confidence" when CSV patterns are strong; 
             }
         }
 
+        // Increment calls count after successful Gemini call
+        USAGE.calls++;
+
         const responseObj = {
             summary,
             indices,
@@ -200,6 +254,9 @@ Keep it practical and honest. Higher "confidence" when CSV patterns are strong; 
                 inputs: { query: query || '', csvRows: csvSize }
             };
         }
+
+        // Store in cache
+        CACHE.set(key, { data: responseObj, ts: Date.now() });
 
         return res.status(200).json(responseObj);
     } catch (error) {
