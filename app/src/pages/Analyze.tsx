@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import type { Row } from '../types';
 import type { AnalysisResult } from '../lib/types';
-import { getSettings } from '../lib/settings';
+import { getSettings, getCurrentWeights, getCurrentThresholds } from '../lib/settings';
 import { computeQuickIndices, verdictFrom, explainQuick } from '../lib/verdict';
 import { getCsvRows, setCsv, setCsvRows, subscribeCsv, getCsvValidation } from '../lib/csv-store';
 import { saveSession } from '../lib/sessions';
@@ -263,9 +263,11 @@ const Analyze: React.FC = () => {
         try {
             if (mode === 'quick') {
                 const s = getSettings();
-                const indices = computeQuickIndices(csvRows || [], s.weights, s.scenario);
-                const verdict = verdictFrom(indices, s.thresholds);
-                const explain = explainQuick(csvRows || [], s.weights, s.scenario);
+                const weights = getCurrentWeights();
+                const thresholds = getCurrentThresholds();
+                const indices = computeQuickIndices(csvRows || [], weights, s.scenario);
+                const verdict = verdictFrom(indices, thresholds);
+                const explain = explainQuick(csvRows || [], weights, s.scenario);
                 const result: AnalysisResult = {
                     verdict,
                     demand: indices.demand,

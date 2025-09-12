@@ -1,24 +1,23 @@
-export type Thresholds = {
-    demandGo: number; momentumGo: number; freshnessGo: number;
-    demandHold: number; momentumHold: number; freshnessHold: number;
-};
-
-export type Weights = {
-    demand: number; momentum: number; saturation: number; freshness: number; styleFit: number;
-};
+import type { Preset, RegionWeights, BuyerExpectations, PersonaId, IndicesWeights, DecisionThresholds } from './types';
+import { DEFAULT_PRESETS, DEFAULT_REGION_WEIGHTS, AOV_USD } from './presets';
 
 export type Scenario = {
-    marketingPush: number; collabFrequency: number; priceSensitivity: number; macroSentiment: number;
+    marketingPush: number;
+    collabFrequency: number;
+    priceSensitivity: number;
+    macroSentiment: number;
 };
 
 export type Settings = {
     model: string;          // e.g., "gemini-1.5-flash"
     temperature: number;    // 0..1
     budgetCap: number;      // max deep calls per day (dev: in-memory)
-    thresholds: Thresholds;
-    weights: Weights;
     scenario: Scenario;
     defaultMode: 'quick' | 'deep';
+    selectedPersonaId: PersonaId | null;
+    presets: Preset[];
+    regionWeights: RegionWeights;
+    buyerExpectations: BuyerExpectations;
     trainingContext: {
         brandGuidelines: string;
         buyerNotes: string;
@@ -26,43 +25,23 @@ export type Settings = {
     };
 };
 
-export type BuyerPresetKey = 'footwear' | 'apparel' | 'regional_us' | 'regional_eu';
-
-export const BUYER_PRESETS: Record<BuyerPresetKey, {
-    label: string;
-    weights: Weights;
-    thresholds: Thresholds;
-}> = {
-    footwear: {
-        label: 'Footwear (Default)',
-        weights: { demand: 3, momentum: 3, saturation: 2, freshness: 2, styleFit: 1 },
-        thresholds: { demandGo: 65, momentumGo: 60, freshnessGo: 55, demandHold: 45, momentumHold: 40, freshnessHold: 35 },
-    },
-    apparel: {
-        label: 'Apparel',
-        weights: { demand: 2, momentum: 2, saturation: 2, freshness: 3, styleFit: 2 },
-        thresholds: { demandGo: 62, momentumGo: 58, freshnessGo: 60, demandHold: 42, momentumHold: 38, freshnessHold: 40 },
-    },
-    regional_us: {
-        label: 'Regional — US',
-        weights: { demand: 3, momentum: 2, saturation: 2, freshness: 2, styleFit: 1 },
-        thresholds: { demandGo: 64, momentumGo: 59, freshnessGo: 54, demandHold: 44, momentumHold: 39, freshnessHold: 34 },
-    },
-    regional_eu: {
-        label: 'Regional — EU',
-        weights: { demand: 2, momentum: 3, saturation: 2, freshness: 2, styleFit: 1 },
-        thresholds: { demandGo: 63, momentumGo: 61, freshnessGo: 56, demandHold: 43, momentumHold: 41, freshnessHold: 36 },
-    },
-};
+const STORAGE_KEY = 'ai.settings.v2';
 
 const DEFAULTS: Settings = {
     model: 'gemini-1.5-flash',
     temperature: 0.4,
     budgetCap: 500,
-    thresholds: { demandGo: 70, momentumGo: 65, freshnessGo: 60, demandHold: 55, momentumHold: 50, freshnessHold: 50 },
-    weights: { demand: 0.35, momentum: 0.25, saturation: 0.15, freshness: 0.15, styleFit: 0.10 },
     scenario: { marketingPush: 0.5, collabFrequency: 0.5, priceSensitivity: 0.5, macroSentiment: 0.5 },
     defaultMode: 'deep',
+    selectedPersonaId: 'lifestyle',
+    presets: [...DEFAULT_PRESETS],
+    regionWeights: { ...DEFAULT_REGION_WEIGHTS },
+    buyerExpectations: {
+        targetPriceMax: AOV_USD,
+        focusGender: ['men', 'women'],
+        sizeNotes: '',
+        riskTolerance: 'medium'
+    },
     trainingContext: {
         brandGuidelines: '',
         buyerNotes: '',
@@ -70,13 +49,28 @@ const DEFAULTS: Settings = {
     },
 };
 
-// Load persisted settings or use defaults
-function loadPersistedSettings(): Settings {
+// Storage functions
+function save(settings: Settings) {
     try {
-        const stored = localStorage.getItem('aba_settings');
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    } catch {
+        // Ignore storage errors
+    }
+}
+
+function load(): Settings {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
             const parsed = JSON.parse(stored);
-            return { ...DEFAULTS, ...parsed };
+            // Merge with defaults to handle new fields
+            return {
+                ...DEFAULTS,
+                ...parsed,
+                presets: parsed.presets || [...DEFAULT_PRESETS],
+                regionWeights: parsed.regionWeights || { ...DEFAULT_REGION_WEIGHTS },
+                buyerExpectations: parsed.buyerExpectations || DEFAULTS.buyerExpectations
+            };
         }
     } catch {
         // Ignore parsing errors, use defaults
@@ -84,46 +78,171 @@ function loadPersistedSettings(): Settings {
     return { ...DEFAULTS };
 }
 
-let _settings: Settings = loadPersistedSettings();
+// Reactive store
+let _settings: Settings = load();
 let _version = 0;
 
 type Sub = (s: Settings) => void;
 const subs = new Set<Sub>();
 
 export function getSettings(): Settings { return _settings; }
+
 export function updateSettings(patch: Partial<Settings>) {
     _settings = { ..._settings, ...patch };
     _version++;
-    // Persist to localStorage
-    try {
-        localStorage.setItem('aba_settings', JSON.stringify(_settings));
-    } catch {
-        // Ignore storage errors
-    }
+    save(_settings);
     subs.forEach(fn => fn(_settings));
 }
-export function subscribeSettings(fn: Sub) { subs.add(fn); return () => { subs.delete(fn); }; }
+
+export function subscribeSettings(fn: Sub) {
+    subs.add(fn);
+    return () => { subs.delete(fn); };
+}
+
 export function getSettingsVersion() { return _version; }
 
-export function applyPreset(key: BuyerPresetKey) {
-    const p = BUYER_PRESETS[key];
-    if (!p) return;
-    _settings.weights = { ...p.weights };
-    _settings.thresholds = { ...p.thresholds };
+// Preset CRUD functions
+export function createPreset(preset: Omit<Preset, 'id'> & { id?: string }): string {
+    const id = preset.id || `custom_${Date.now()}`;
+    const newPreset: Preset = { ...preset, id };
+
+    _settings = {
+        ..._settings,
+        presets: [..._settings.presets, newPreset]
+    };
     _version++;
-    // Persist to localStorage
-    try {
-        localStorage.setItem('aba_settings', JSON.stringify(_settings));
-    } catch { }
+    save(_settings);
     subs.forEach(fn => fn(_settings));
+    return id;
+}
+
+export function updatePreset(id: PersonaId, updates: Partial<Preset>) {
+    const presetIndex = _settings.presets.findIndex(p => p.id === id);
+    if (presetIndex === -1) return false;
+
+    _settings = {
+        ..._settings,
+        presets: _settings.presets.map((p, i) =>
+            i === presetIndex ? { ...p, ...updates } : p
+        )
+    };
+    _version++;
+    save(_settings);
+    subs.forEach(fn => fn(_settings));
+    return true;
+}
+
+export function deletePreset(id: PersonaId) {
+    _settings = {
+        ..._settings,
+        presets: _settings.presets.filter(p => p.id !== id),
+        selectedPersonaId: _settings.selectedPersonaId === id ? null : _settings.selectedPersonaId
+    };
+    _version++;
+    save(_settings);
+    subs.forEach(fn => fn(_settings));
+}
+
+export function applyPreset(id: PersonaId) {
+    const preset = _settings.presets.find(p => p.id === id);
+    if (!preset) return false;
+
+    _settings = {
+        ..._settings,
+        selectedPersonaId: id,
+        buyerExpectations: { ...preset.expectations }
+    };
+    _version++;
+    save(_settings);
+    subs.forEach(fn => fn(_settings));
+    return true;
 }
 
 export function resetToDefaults() {
     _settings = { ...DEFAULTS };
     _version++;
-    // Persist to localStorage
-    try {
-        localStorage.setItem('aba_settings', JSON.stringify(_settings));
-    } catch { }
+    save(_settings);
     subs.forEach(fn => fn(_settings));
+}
+
+// Region weights helpers
+export function normalizeRegionWeights(weights: RegionWeights): RegionWeights {
+    const total = Object.values(weights).reduce((sum, w) => sum + w, 0);
+    if (total === 0) return weights;
+
+    const normalized: RegionWeights = {};
+    for (const [region, weight] of Object.entries(weights)) {
+        normalized[region] = weight / total;
+    }
+    return normalized;
+}
+
+export function resetRegionWeights() {
+    updateSettings({ regionWeights: { ...DEFAULT_REGION_WEIGHTS } });
+}
+
+// Import/Export functions
+export function exportSettings(): string {
+    return JSON.stringify(_settings, null, 2);
+}
+
+export function importSettings(jsonString: string): { success: boolean; error?: string } {
+    try {
+        const parsed = JSON.parse(jsonString);
+
+        // Basic validation
+        if (typeof parsed !== 'object' || !parsed) {
+            return { success: false, error: 'Invalid JSON format' };
+        }
+
+        // Validate required fields exist
+        const required = ['model', 'temperature', 'presets', 'regionWeights', 'buyerExpectations'];
+        for (const field of required) {
+            if (!(field in parsed)) {
+                return { success: false, error: `Missing required field: ${field}` };
+            }
+        }
+
+        // Merge with defaults to ensure all fields exist
+        const importedSettings: Settings = {
+            ...DEFAULTS,
+            ...parsed,
+            presets: Array.isArray(parsed.presets) ? parsed.presets : [...DEFAULT_PRESETS],
+            regionWeights: parsed.regionWeights || { ...DEFAULT_REGION_WEIGHTS },
+            buyerExpectations: parsed.buyerExpectations || DEFAULTS.buyerExpectations
+        };
+
+        _settings = importedSettings;
+        _version++;
+        save(_settings);
+        subs.forEach(fn => fn(_settings));
+
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: `Parse error: ${error}` };
+    }
+}
+
+// Helper functions for backward compatibility
+export function getCurrentWeights(): IndicesWeights {
+    const preset = _settings.presets.find(p => p.id === _settings.selectedPersonaId);
+    return preset?.weights || {
+        demand: 0.25,
+        momentum: 0.25,
+        saturation: 0.2,
+        freshness: 0.15,
+        styleFit: 0.15
+    };
+}
+
+export function getCurrentThresholds(): DecisionThresholds {
+    const preset = _settings.presets.find(p => p.id === _settings.selectedPersonaId);
+    return preset?.thresholds || {
+        demandGo: 70,
+        momentumGo: 60,
+        freshnessGo: 50,
+        demandHold: 50,
+        momentumHold: 40,
+        freshnessHold: 30
+    };
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getSettings, subscribeSettings } from '../lib/settings';
+import { getSettings, subscribeSettings, getCurrentWeights } from '../lib/settings';
 import { getCsvRows, subscribeCsv, getCsvValidation } from '../lib/csv-store';
 import { computeQuickIndices } from '../lib/verdict';
 
@@ -22,10 +22,11 @@ export default function TrendRadar() {
 
     useEffect(() => {
         if (csvRows.length > 0) {
-            const newIndices = computeQuickIndices(csvRows, settings.weights, settings.scenario);
+            const weights = getCurrentWeights();
+            const newIndices = computeQuickIndices(csvRows, weights, settings.scenario);
             setIndices(newIndices);
         }
-    }, [csvRows, settings.weights, settings.scenario]);
+    }, [csvRows, settings]);
 
     const getColorForValue = (value: number) => {
         if (value >= 70) return '#22c55e'; // green

@@ -1,45 +1,81 @@
 import { useEffect, useState } from 'react';
-import { getSettings, updateSettings, subscribeSettings, applyPreset, resetToDefaults, BUYER_PRESETS, type Settings, type BuyerPresetKey } from '../lib/settings';
+import {
+    getSettings,
+    updateSettings,
+    subscribeSettings,
+    deletePreset,
+    applyPreset,
+    resetToDefaults,
+    normalizeRegionWeights,
+    resetRegionWeights,
+    exportSettings,
+    importSettings,
+    type Settings
+} from '../lib/settings';
+import type { PersonaId } from '../lib/types';
 import HelpTip from '../components/HelpTip';
 
 export default function SettingsPage() {
     const [s, setS] = useState<Settings>(getSettings());
-    const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+    const [importError, setImportError] = useState<string | null>(null);
 
     useEffect(() => {
         return subscribeSettings(setS);
     }, []);
 
-    // Validation functions
-    const validateThreshold = (value: number, field: string) => {
-        if (value < 0 || value > 100) {
-            setValidationErrors(prev => ({ ...prev, [field]: 'Must be between 0-100' }));
-            return false;
-        } else {
-            setValidationErrors(prev => {
-                const newErrors = { ...prev };
-                delete newErrors[field];
-                return newErrors;
-            });
-            return true;
-        }
+    // Region weights helpers
+    const regionWeightsSum = Object.values(s.regionWeights).reduce((sum, w) => sum + w, 0);
+
+    const handleRegionWeightChange = (region: string, value: number) => {
+        const newWeights = { ...s.regionWeights, [region]: value };
+        updateSettings({ regionWeights: newWeights });
     };
 
-    const weightsSum = Object.values(s.weights).reduce((sum, w) => sum + w, 0);
-    const normalizeWeights = () => {
-        const sum = weightsSum;
-        if (sum > 0) {
-            const normalized = Object.fromEntries(
-                Object.entries(s.weights).map(([k, v]) => [k, v / sum])
-            ) as typeof s.weights;
-            updateSettings({ weights: normalized });
-        }
+    const handleNormalizeRegions = () => {
+        updateSettings({ regionWeights: normalizeRegionWeights(s.regionWeights) });
     };
+
+    // Import/Export handlers
+    const handleExport = () => {
+        const dataStr = exportSettings();
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `ai-buyer-settings-${new Date().toISOString().slice(0, 10)}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const result = e.target?.result;
+            if (typeof result === 'string') {
+                const importResult = importSettings(result);
+                if (importResult.success) {
+                    setImportError(null);
+                    alert('Settings imported successfully!');
+                } else {
+                    setImportError(importResult.error || 'Import failed');
+                }
+            }
+        };
+        reader.readAsText(file);
+
+        // Reset input
+        event.target.value = '';
+    };
+
+    const selectedPreset = s.presets.find(p => p.id === s.selectedPersonaId);
 
     return (
-        <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+        <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
             <h2 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '24px', color: 'var(--text)' }}>
-                Settings
+                Settings & Buyer Management
             </h2>
 
             {/* AI Model & Creativity */}
@@ -89,238 +125,323 @@ export default function SettingsPage() {
                 </div>
             </div>
 
-            {/* Decision Thresholds */}
-            <div className="section">
-                <h3 className="section-title">
-                    Decision Thresholds
-                    <HelpTip text="Minimum combined index scores (0-100) required for Go/Hold recommendations" />
-                </h3>
-                <div className="help" style={{ marginBottom: '12px' }}>
-                    Set the minimum scores needed for each recommendation type. Higher thresholds = more conservative decisions.
-                </div>
-                <div className="grid grid-3">
-                    {(['demand', 'momentum', 'freshness'] as const).map(metric => (
-                        <div key={metric} className="card" style={{ padding: '12px' }}>
-                            <div className="section-title" style={{ fontSize: '14px', textTransform: 'capitalize' }}>
-                                {metric}
-                            </div>
-                            <div style={{ marginBottom: '8px' }}>
-                                <label className="help">
-                                    Go Threshold: {s.thresholds[`${metric}Go` as const]}
-                                </label>
-                                <input
-                                    type="range"
-                                    className="slider"
-                                    min={40}
-                                    max={90}
-                                    step={1}
-                                    value={s.thresholds[`${metric}Go` as const]}
-                                    onChange={e => {
-                                        const val = Number(e.target.value);
-                                        if (validateThreshold(val, `${metric}Go`)) {
-                                            updateSettings({
-                                                thresholds: {
-                                                    ...s.thresholds,
-                                                    [`${metric}Go`]: val
-                                                }
-                                            } as any);
-                                        }
-                                    }}
-                                />
-                                {validationErrors[`${metric}Go`] && (
-                                    <div style={{ color: '#dc2626', fontSize: '12px' }}>
-                                        {validationErrors[`${metric}Go`]}
-                                    </div>
-                                )}
-                            </div>
-                            <div>
-                                <label className="help">
-                                    Hold Threshold: {s.thresholds[`${metric}Hold` as const]}
-                                </label>
-                                <input
-                                    type="range"
-                                    className="slider"
-                                    min={30}
-                                    max={80}
-                                    step={1}
-                                    value={s.thresholds[`${metric}Hold` as const]}
-                                    onChange={e => {
-                                        const val = Number(e.target.value);
-                                        if (validateThreshold(val, `${metric}Hold`)) {
-                                            updateSettings({
-                                                thresholds: {
-                                                    ...s.thresholds,
-                                                    [`${metric}Hold`]: val
-                                                }
-                                            } as any);
-                                        }
-                                    }}
-                                />
-                                {validationErrors[`${metric}Hold`] && (
-                                    <div style={{ color: '#dc2626', fontSize: '12px' }}>
-                                        {validationErrors[`${metric}Hold`]}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Index Weights */}
-            <div className="section">
-                <h3 className="section-title">
-                    Index Weights
-                    <HelpTip text="How much each metric contributes to the final analysis. Higher weights = more influence." />
-                </h3>
-                <div className="help" style={{ marginBottom: '12px' }}>
-                    Configure the relative importance of each metric in decision-making.
-                </div>
-                <div className="grid">
-                    {(['demand', 'momentum', 'saturation', 'freshness', 'styleFit'] as const).map(metric => (
-                        <div key={metric} style={{ marginBottom: '12px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                <label className="section-title" style={{ fontSize: '14px', textTransform: 'capitalize' }}>
-                                    {metric === 'styleFit' ? 'Style Fit' : metric}
-                                    <HelpTip text={
-                                        metric === 'demand' ? 'Current market appetite (velocity, sell-through rates)' :
-                                            metric === 'momentum' ? 'Trend direction - rising or falling popularity over time' :
-                                                metric === 'saturation' ? 'Market crowding level - risk of markdowns and oversupply' :
-                                                    metric === 'freshness' ? 'Novelty factor - new styles vs. lifecycle stage' :
-                                                        'Brand and customer aesthetic alignment'
-                                    } />
-                                </label>
-                                <span className="help">{s.weights[metric].toFixed(2)}</span>
-                            </div>
-                            <input
-                                type="range"
-                                className="slider"
-                                min={0}
-                                max={1}
-                                step={0.05}
-                                value={s.weights[metric]}
-                                onChange={e => updateSettings({
-                                    weights: {
-                                        ...s.weights,
-                                        [metric]: Number(e.target.value)
-                                    }
-                                })}
-                            />
-                        </div>
-                    ))}
-                    <div style={{
-                        marginTop: '16px',
-                        padding: '12px',
-                        backgroundColor: weightsSum > 1.1 ? 'rgba(220, 38, 38, 0.1)' : 'rgba(5, 150, 105, 0.1)',
-                        borderRadius: '8px',
-                        border: `1px solid ${weightsSum > 1.1 ? '#dc2626' : '#059669'}`
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span className="help">Total Weight Sum: {weightsSum.toFixed(2)}</span>
-                            {weightsSum > 1.1 && (
-                                <button
-                                    className="btn"
-                                    onClick={normalizeWeights}
-                                    style={{ fontSize: '12px', padding: '4px 8px' }}
-                                >
-                                    Normalize to 1.0
-                                </button>
-                            )}
-                        </div>
-                        {weightsSum > 1.1 && (
-                            <div className="help" style={{ color: '#dc2626', marginTop: '4px' }}>
-                                Warning: Sum exceeds 1.0. Consider normalizing for balanced weighting.
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Market Scenario */}
-            <div className="section">
-                <h3 className="section-title">
-                    Market Scenario (What-if)
-                    <HelpTip text="Adjust market conditions to bias analysis results. Values from -2 to +2 affect metric calculations." />
-                </h3>
-                <div className="help" style={{ marginBottom: '12px' }}>
-                    Simulate different market conditions to see how they would impact buying decisions.
-                </div>
-                <div className="grid grid-2">
-                    {([
-                        { key: 'marketingPush', label: 'Marketing Push', help: 'Planned promotional intensity - higher values boost demand forecasts' },
-                        { key: 'collabFrequency', label: 'Collab Frequency', help: 'Collaboration cadence - affects freshness and momentum calculations' },
-                        { key: 'priceSensitivity', label: 'Price Sensitivity', help: 'Customer price awareness - impacts saturation risk assessment' },
-                        { key: 'macroSentiment', label: 'Macro Sentiment', help: 'Overall economic mood - influences all buying behavior predictions' }
-                    ] as const).map(({ key, label, help }) => (
-                        <div key={key}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                <label className="section-title" style={{ fontSize: '14px' }}>
-                                    {label}
-                                    <HelpTip text={help} />
-                                </label>
-                                <span className="help">{(s.scenario[key] * 4 - 2).toFixed(1)}</span>
-                            </div>
-                            <input
-                                type="range"
-                                className="slider"
-                                min={0}
-                                max={1}
-                                step={0.05}
-                                value={s.scenario[key]}
-                                onChange={e => updateSettings({
-                                    scenario: {
-                                        ...s.scenario,
-                                        [key]: Number(e.target.value)
-                                    }
-                                })}
-                            />
-                            <div className="help" style={{ fontSize: '11px' }}>
-                                {s.scenario[key] < 0.4 ? 'Negative Impact' :
-                                    s.scenario[key] > 0.6 ? 'Positive Impact' :
-                                        'Neutral'}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Buyer Presets */}
+            {/* Buyer Presets Management */}
             <div className="section">
                 <h3 className="section-title">
                     Buyer Presets
-                    <HelpTip text="Quick configurations for different buying scenarios and regions" />
+                    <HelpTip text="Manage different buyer persona configurations with their own weights, thresholds, and expectations" />
                 </h3>
-                <div className="help" style={{ marginBottom: '12px' }}>
-                    Apply preset configurations that update weights and thresholds. You can fine-tune manually afterwards.
+                <div className="help" style={{ marginBottom: '16px' }}>
+                    Configure buyer personas for different market segments. Each preset includes weight preferences, decision thresholds, and target expectations.
                 </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                    <label className="section-title" style={{ fontSize: '14px', marginBottom: '4px' }}>
+                        Active Preset
+                        <HelpTip text="Currently selected buyer persona that influences analysis" />
+                    </label>
+                    <select
+                        className="select"
+                        value={s.selectedPersonaId || ''}
+                        onChange={e => {
+                            if (e.target.value) {
+                                applyPreset(e.target.value as PersonaId);
+                            }
+                        }}
+                    >
+                        <option value="">None selected</option>
+                        {s.presets.map(preset => (
+                            <option key={preset.id} value={preset.id}>
+                                {preset.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {selectedPreset && (
+                    <div className="card" style={{ padding: '12px', marginBottom: '16px', backgroundColor: 'rgba(99, 102, 241, 0.1)' }}>
+                        <div className="section-title" style={{ fontSize: '14px' }}>Active: {selectedPreset.label}</div>
+                        <div className="help">
+                            Target Price: ${selectedPreset.expectations.targetPriceMax} |
+                            Gender Focus: {selectedPreset.expectations.focusGender.join(', ')} |
+                            Risk: {selectedPreset.expectations.riskTolerance}
+                        </div>
+                    </div>
+                )}
+
+                <div className="grid grid-2">
+                    <button className="btn" onClick={() => alert('Preset editor coming soon!')}>
+                        Create New Preset
+                    </button>
+                    <button className="btn btn-secondary" onClick={resetToDefaults}>
+                        Reset All to Defaults
+                    </button>
+                </div>
+
+                <div style={{ marginTop: '16px' }}>
+                    <h4 className="section-title" style={{ fontSize: '14px' }}>Available Presets</h4>
+                    <div className="grid">
+                        {s.presets.map(preset => (
+                            <div key={preset.id} className="card" style={{ padding: '12px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <div className="section-title" style={{ fontSize: '14px' }}>
+                                            {preset.label}
+                                        </div>
+                                        <div className="help">
+                                            ${preset.expectations.targetPriceMax} | {preset.expectations.riskTolerance} risk
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button
+                                            className="btn"
+                                            style={{ fontSize: '12px', padding: '4px 8px' }}
+                                            onClick={() => applyPreset(preset.id)}
+                                        >
+                                            Apply
+                                        </button>
+                                        <button
+                                            className="btn btn-secondary"
+                                            style={{ fontSize: '12px', padding: '4px 8px' }}
+                                            onClick={() => alert('Preset editor coming soon!')}
+                                        >
+                                            Edit
+                                        </button>
+                                        {!['sneakerhead', 'lifestyle', 'performance', 'kids_youth_parent'].includes(preset.id) && (
+                                            <button
+                                                className="btn"
+                                                style={{ fontSize: '12px', padding: '4px 8px', backgroundColor: '#dc2626' }}
+                                                onClick={() => {
+                                                    if (confirm(`Delete preset "${preset.label}"?`)) {
+                                                        deletePreset(preset.id);
+                                                    }
+                                                }}
+                                            >
+                                                Delete
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Region Weights */}
+            <div className="section">
+                <h3 className="section-title">
+                    Region Weights
+                    <HelpTip text="Regional market importance weighting for analysis context" />
+                </h3>
+                <div className="help" style={{ marginBottom: '16px' }}>
+                    Configure how much each region influences buying decisions. Weights are auto-normalized to sum to 1.0.
+                </div>
+
+                <div className="grid">
+                    {Object.entries(s.regionWeights).map(([region, weight]) => (
+                        <div key={region} style={{ marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <label className="section-title" style={{ fontSize: '14px' }}>
+                                    {region}
+                                </label>
+                                <span className="help">{weight.toFixed(2)}</span>
+                            </div>
+                            <input
+                                type="range"
+                                className="slider"
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                value={weight}
+                                onChange={e => handleRegionWeightChange(region, Number(e.target.value))}
+                            />
+                        </div>
+                    ))}
+
+                    <div style={{
+                        marginTop: '16px',
+                        padding: '12px',
+                        backgroundColor: regionWeightsSum > 1.1 || regionWeightsSum < 0.9 ? 'rgba(220, 38, 38, 0.1)' : 'rgba(5, 150, 105, 0.1)',
+                        borderRadius: '8px',
+                        border: `1px solid ${regionWeightsSum > 1.1 || regionWeightsSum < 0.9 ? '#dc2626' : '#059669'}`
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span className="help">Total Weight Sum: {regionWeightsSum.toFixed(2)}</span>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                    className="btn"
+                                    onClick={handleNormalizeRegions}
+                                    style={{ fontSize: '12px', padding: '4px 8px' }}
+                                >
+                                    Normalize
+                                </button>
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={resetRegionWeights}
+                                    style={{ fontSize: '12px', padding: '4px 8px' }}
+                                >
+                                    Reset Defaults
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Buyer Expectations */}
+            <div className="section">
+                <h3 className="section-title">
+                    Buyer Expectations
+                    <HelpTip text="Configure target parameters for the selected buyer persona" />
+                </h3>
+                <div className="help" style={{ marginBottom: '16px' }}>
+                    Set expectations that guide AI analysis decisions. These are applied when a persona is active.
+                </div>
+
                 <div className="grid grid-2">
                     <div>
-                        <select
-                            className="select"
-                            onChange={e => {
-                                if (e.target.value) {
-                                    applyPreset(e.target.value as BuyerPresetKey);
-                                    e.target.value = ''; // Reset dropdown
+                        <label className="section-title" style={{ fontSize: '14px', marginBottom: '4px' }}>
+                            Target Price Max: ${s.buyerExpectations.targetPriceMax}
+                            <HelpTip text="Maximum price point this buyer segment typically accepts" />
+                        </label>
+                        <input
+                            type="range"
+                            className="slider"
+                            min={60}
+                            max={250}
+                            step={5}
+                            value={s.buyerExpectations.targetPriceMax}
+                            onChange={e => updateSettings({
+                                buyerExpectations: {
+                                    ...s.buyerExpectations,
+                                    targetPriceMax: Number(e.target.value)
                                 }
-                            }}
-                            defaultValue=""
-                        >
-                            <option value="">Apply a preset...</option>
-                            {Object.entries(BUYER_PRESETS).map(([key, preset]) => (
-                                <option key={key} value={key}>{preset.label}</option>
-                            ))}
-                        </select>
+                            })}
+                        />
                     </div>
                     <div>
-                        <button
-                            className="btn"
-                            onClick={resetToDefaults}
-                            style={{ width: '100%' }}
-                        >
-                            Reset to Defaults
-                        </button>
+                        <label className="section-title" style={{ fontSize: '14px', marginBottom: '4px' }}>
+                            Risk Tolerance
+                            <HelpTip text="How willing this buyer segment is to take inventory risks" />
+                        </label>
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                            {(['low', 'medium', 'high'] as const).map(level => (
+                                <label key={level} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <input
+                                        type="radio"
+                                        name="riskTolerance"
+                                        value={level}
+                                        checked={s.buyerExpectations.riskTolerance === level}
+                                        onChange={e => updateSettings({
+                                            buyerExpectations: {
+                                                ...s.buyerExpectations,
+                                                riskTolerance: e.target.value as any
+                                            }
+                                        })}
+                                    />
+                                    <span className="help" style={{ textTransform: 'capitalize' }}>{level}</span>
+                                </label>
+                            ))}
+                        </div>
                     </div>
                 </div>
+
+                <div style={{ marginTop: '16px' }}>
+                    <label className="section-title" style={{ fontSize: '14px', marginBottom: '4px' }}>
+                        Focus Gender
+                        <HelpTip text="Primary gender segments this buyer targets" />
+                    </label>
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                        {(['men', 'women', 'kids'] as const).map(gender => (
+                            <label key={gender} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={s.buyerExpectations.focusGender.includes(gender)}
+                                    onChange={e => {
+                                        const newFocus = e.target.checked
+                                            ? [...s.buyerExpectations.focusGender, gender]
+                                            : s.buyerExpectations.focusGender.filter(g => g !== gender);
+                                        updateSettings({
+                                            buyerExpectations: {
+                                                ...s.buyerExpectations,
+                                                focusGender: newFocus
+                                            }
+                                        });
+                                    }}
+                                />
+                                <span className="help" style={{ textTransform: 'capitalize' }}>{gender}</span>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
+                <div style={{ marginTop: '16px' }}>
+                    <label className="section-title" style={{ fontSize: '14px', marginBottom: '4px' }}>
+                        Size Notes
+                        <HelpTip text="Special sizing considerations for this buyer segment" />
+                    </label>
+                    <textarea
+                        className="input textarea"
+                        style={{
+                            width: '100%',
+                            minHeight: '60px',
+                            resize: 'vertical',
+                            marginTop: '4px'
+                        }}
+                        placeholder="e.g., Full size runs important, focus on popular sizes 8-11..."
+                        value={s.buyerExpectations.sizeNotes || ''}
+                        onChange={e => updateSettings({
+                            buyerExpectations: {
+                                ...s.buyerExpectations,
+                                sizeNotes: e.target.value
+                            }
+                        })}
+                    />
+                </div>
+            </div>
+
+            {/* Import/Export */}
+            <div className="section">
+                <h3 className="section-title">
+                    Import/Export Settings
+                    <HelpTip text="Backup and restore your complete settings configuration" />
+                </h3>
+                <div className="help" style={{ marginBottom: '16px' }}>
+                    Export your settings as JSON for backup or sharing. Import to restore a previous configuration.
+                </div>
+
+                <div className="grid grid-2">
+                    <button className="btn" onClick={handleExport}>
+                        Export Settings JSON
+                    </button>
+                    <div>
+                        <input
+                            type="file"
+                            accept=".json"
+                            onChange={handleImport}
+                            style={{ display: 'none' }}
+                            id="import-settings"
+                        />
+                        <label htmlFor="import-settings" className="btn btn-secondary" style={{ cursor: 'pointer' }}>
+                            Import Settings JSON
+                        </label>
+                    </div>
+                </div>
+
+                {importError && (
+                    <div style={{
+                        marginTop: '12px',
+                        padding: '8px',
+                        backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                        border: '1px solid #dc2626',
+                        borderRadius: '4px',
+                        color: '#dc2626',
+                        fontSize: '14px'
+                    }}>
+                        Import Error: {importError}
+                    </div>
+                )}
             </div>
 
             {/* AI Training Context */}
@@ -339,7 +460,7 @@ export default function SettingsPage() {
                             <HelpTip text="Describe your brand identity, product categories, target customers, and general merchandise strategy" />
                         </label>
                         <textarea
-                            className="input"
+                            className="input textarea"
                             style={{
                                 width: '100%',
                                 minHeight: '80px',
@@ -362,7 +483,7 @@ export default function SettingsPage() {
                             <HelpTip text="Specific buying criteria, exclusions, preferences, and markdown policies that influence decisions" />
                         </label>
                         <textarea
-                            className="input"
+                            className="input textarea"
                             style={{
                                 width: '100%',
                                 minHeight: '80px',
@@ -385,7 +506,7 @@ export default function SettingsPage() {
                             <HelpTip text="Regional preferences, cultural considerations, and market-specific factors (US/EU differences, etc.)" />
                         </label>
                         <textarea
-                            className="input"
+                            className="input textarea"
                             style={{
                                 width: '100%',
                                 minHeight: '80px',

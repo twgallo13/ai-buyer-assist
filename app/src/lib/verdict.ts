@@ -1,4 +1,5 @@
-import type { Thresholds, Weights, Scenario } from './settings';
+import type { Scenario } from './settings';
+import type { Weights, Thresholds } from './types';
 import type { Indices, Explain } from './types';
 
 type Row = {

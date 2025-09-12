@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { getCsvRows } from '../lib/csv-store';
-import { getSettings } from '../lib/settings';
+import { getSettings, getCurrentWeights, getCurrentThresholds } from '../lib/settings';
 import { computeQuickIndices, verdictFrom } from '../lib/verdict';
 
 export default function ComparePage() {
@@ -20,18 +20,21 @@ export default function ComparePage() {
         (String(r.collection || r.Collection || '').trim() === name)
     );
 
+    const weights = getCurrentWeights();
+    const thresholds = getCurrentThresholds();
+
     const ai = useMemo(() =>
-        a ? computeQuickIndices(pick(a), s.weights, s.scenario) : null,
-        [a, rows, s.weights, s.scenario]
+        a ? computeQuickIndices(pick(a), weights, s.scenario) : null,
+        [a, rows, weights, s.scenario]
     );
 
     const bi = useMemo(() =>
-        b ? computeQuickIndices(pick(b), s.weights, s.scenario) : null,
-        [b, rows, s.weights, s.scenario]
+        b ? computeQuickIndices(pick(b), weights, s.scenario) : null,
+        [b, rows, weights, s.scenario]
     );
 
-    const aVerdict = ai ? verdictFrom(ai, s.thresholds) : null;
-    const bVerdict = bi ? verdictFrom(bi, s.thresholds) : null;
+    const aVerdict = ai ? verdictFrom(ai, thresholds) : null;
+    const bVerdict = bi ? verdictFrom(bi, thresholds) : null;
 
     const handleOpenInAnalyze = (collection: string) => {
         // Store the query in session storage for the Analyze page to pick up
