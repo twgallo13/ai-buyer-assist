@@ -62,10 +62,10 @@ export function explainQuick(rows: Row[], weights: Weights, scenario: Scenario):
     const delta = s28 - s90;
 
     // v1.9.5: Color analysis
-    const uniqueColors = getUniqueColorTags(r as Array<{colorTags?: string[]}>);
+    const uniqueColors = getUniqueColorTags(r as Array<{ colorTags?: string[] }>);
     const paletteGroups = groupColorTagsByPalette(uniqueColors);
     const dominantPalette = Object.entries(paletteGroups)
-        .sort(([,a], [,b]) => b.length - a.length)[0];
+        .sort(([, a], [, b]) => b.length - a.length)[0];
 
     const factors: Explain['factors'] = [
         {
@@ -95,10 +95,10 @@ export function explainQuick(rows: Row[], weights: Weights, scenario: Scenario):
         const [paletteName, paletteColors] = dominantPalette;
         const colorDiversity = uniqueColors.length;
         const isPaletteConcentrated = paletteColors.length / uniqueColors.length > 0.6;
-        
+
         let colorImpact: '+' | '-' | '~' = '~';
         let colorNote = `${colorDiversity} colors, ${paletteName} dominant`;
-        
+
         // Analyze color impact based on palette and diversity
         if (paletteName === 'neon' && isPaletteConcentrated) {
             colorImpact = '+';

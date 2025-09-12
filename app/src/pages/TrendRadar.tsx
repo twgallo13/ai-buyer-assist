@@ -13,7 +13,7 @@ export default function TrendRadar() {
 
     const validation = getCsvValidation();
     const csvIsValid = validation?.ok !== false;
-    
+
     // Get unique color tags and palette groups from current dataset
     const uniqueColorTags = getUniqueColorTags(csvRows);
     const paletteGroups = groupColorTagsByPalette(uniqueColorTags);
@@ -94,8 +94,8 @@ export default function TrendRadar() {
                                 <button
                                     key={tag}
                                     onClick={() => {
-                                        setSelectedColorTags(prev => 
-                                            prev.includes(tag) 
+                                        setSelectedColorTags(prev =>
+                                            prev.includes(tag)
                                                 ? prev.filter(t => t !== tag)
                                                 : [...prev, tag]
                                         );
@@ -244,8 +244,8 @@ export default function TrendRadar() {
                                                 <span
                                                     key={tag}
                                                     onClick={() => {
-                                                        setSelectedColorTags(prev => 
-                                                            prev.includes(tag) 
+                                                        setSelectedColorTags(prev =>
+                                                            prev.includes(tag)
                                                                 ? prev.filter(t => t !== tag)
                                                                 : [...prev, tag]
                                                         );
@@ -263,8 +263,8 @@ export default function TrendRadar() {
                                                 </span>
                                             ))}
                                             {tags.length > 10 && (
-                                                <span style={{ 
-                                                    color: '#9ca3af', 
+                                                <span style={{
+                                                    color: '#9ca3af',
                                                     fontSize: '0.75rem',
                                                     padding: '0.125rem 0.25rem'
                                                 }}>
