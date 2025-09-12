@@ -19,6 +19,9 @@ export type Settings = {
     weights: Weights;
     scenario: Scenario;
     defaultMode: 'quick' | 'deep';
+    theme: 'light' | 'dark' | 'system';
+    reasoningLevel: 'basic' | 'detailed' | 'comprehensive';
+    regionPreset: 'global' | 'us' | 'eu' | 'asia';
 };
 
 export type BuyerPresetKey = 'footwear' | 'apparel' | 'regional_us' | 'regional_eu';
@@ -58,6 +61,9 @@ const DEFAULTS: Settings = {
     weights: { demand: 0.35, momentum: 0.25, saturation: 0.15, freshness: 0.15, styleFit: 0.10 },
     scenario: { marketingPush: 0.5, collabFrequency: 0.5, priceSensitivity: 0.5, macroSentiment: 0.5 },
     defaultMode: 'deep',
+    theme: 'light',
+    reasoningLevel: 'detailed',
+    regionPreset: 'global',
 };
 
 // Load persisted settings or use defaults

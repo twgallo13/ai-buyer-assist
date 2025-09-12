@@ -18,6 +18,14 @@ function App() {
     // Initialize theme
     initTheme();
 
+    // Sync settings theme with theme library on startup
+    import('./lib/settings').then(({ getSettings }) => {
+      const { theme } = getSettings();
+      import('./lib/theme').then(({ applyTheme }) => {
+        applyTheme(theme);
+      });
+    });
+
     // Poll usage every 20 seconds
     const fetchUsage = async () => {
       try {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getSettings, updateSettings, subscribeSettings, applyPreset, BUYER_PRESETS, type Settings, type BuyerPresetKey } from '../lib/settings';
+import { applyTheme } from '../lib/theme';
 
 export default function SettingsPage() {
     const [s, setS] = useState<Settings>(getSettings());
@@ -7,19 +8,65 @@ export default function SettingsPage() {
         return subscribeSettings(setS);
     }, []);
 
+    const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
+        updateSettings({ theme: newTheme });
+        applyTheme(newTheme);
+    };
+
     return (
         <div className="p-4 space-y-6">
-            <h2 className="text-xl font-semibold">AI & Rules Settings</h2>
+            <h2 className="text-xl font-semibold">Settings</h2>
 
+            {/* Theme Toggle */}
             <section className="space-y-2">
-                <label className="block">Model ID
-                    <input className="mt-1 w-full rounded bg-black/30 p-2" value={s.model}
-                        onChange={e => updateSettings({ model: e.target.value })} />
+                <h3 className="font-medium">Appearance</h3>
+                <label className="block">Theme
+                    <select className="mt-1 w-full rounded bg-black/30 p-2" value={s.theme}
+                        onChange={e => handleThemeChange(e.target.value as any)}>
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                        <option value="system">System</option>
+                    </select>
+                </label>
+            </section>
+
+            {/* AI Model Configuration */}
+            <section className="space-y-2">
+                <h3 className="font-medium">AI Model</h3>
+                <label className="block">Model
+                    <select className="mt-1 w-full rounded bg-black/30 p-2" value={s.model}
+                        onChange={e => updateSettings({ model: e.target.value })}>
+                        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                        <option value="gemini-1.0-pro">Gemini 1.0 Pro</option>
+                    </select>
                 </label>
                 <label className="block">Temperature ({s.temperature})
                     <input type="range" min={0} max={1} step={0.05} value={s.temperature}
                         onChange={e => updateSettings({ temperature: Number(e.target.value) })} />
                 </label>
+                <label className="block">Reasoning Level
+                    <select className="mt-1 w-full rounded bg-black/30 p-2" value={s.reasoningLevel}
+                        onChange={e => updateSettings({ reasoningLevel: e.target.value as any })}>
+                        <option value="basic">Basic</option>
+                        <option value="detailed">Detailed</option>
+                        <option value="comprehensive">Comprehensive</option>
+                    </select>
+                </label>
+                <label className="block">Region Preset
+                    <select className="mt-1 w-full rounded bg-black/30 p-2" value={s.regionPreset}
+                        onChange={e => updateSettings({ regionPreset: e.target.value as any })}>
+                        <option value="global">Global</option>
+                        <option value="us">United States</option>
+                        <option value="eu">Europe</option>
+                        <option value="asia">Asia Pacific</option>
+                    </select>
+                </label>
+            </section>
+
+            {/* Analysis Settings */}
+            <section className="space-y-2">
+                <h3 className="font-medium">Analysis</h3>
                 <label className="block">Budget cap (calls/day): {s.budgetCap}
                     <input type="range" min={50} max={5000} step={50} value={s.budgetCap}
                         onChange={e => updateSettings({ budgetCap: Number(e.target.value) })} />

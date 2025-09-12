@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import type { AnalysisResult } from '../lib/types';
 import { saveSession } from '../lib/sessions';
+import { getSettings } from '../lib/settings';
 import DashboardShell from '../components/layout/DashboardShell';
 import SearchHero from '../components/analyze/SearchHero';
 import DecisionSnapshot from '../components/analyze/DecisionSnapshot';
@@ -15,7 +16,10 @@ import {
 
 
 const Analyze: React.FC = () => {
-    const [mode, setMode] = useState<'quick' | 'deep'>('quick');
+    // Load settings for defaults
+    const settings = getSettings();
+
+    const [mode, setMode] = useState<'quick' | 'deep'>(settings.defaultMode);
     const [result, setResult] = useState<AnalysisResult | null>(null);
     const [showBudgetBanner, setShowBudgetBanner] = useState(false);
     const [showFallbackBanner, setShowFallbackBanner] = useState(false);
@@ -28,7 +32,7 @@ const Analyze: React.FC = () => {
     const [showMockBanner, setShowMockBanner] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    // Dashboard state for v2.0
+    // Dashboard state for v2.0 - use settings as defaults
     const [selectedIntent, setSelectedIntent] = useState<string>('question');
     const [selectedHorizon, setSelectedHorizon] = useState<number>(6);
 
@@ -122,14 +126,17 @@ const Analyze: React.FC = () => {
         setShowMockBanner(false);
 
         try {
-            // Deep mode - API call
+            // Deep mode - API call with settings
+            const currentSettings = getSettings();
             const response = await fetch('/api/deep', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     query,
-                    reasoningLevel,
-                    region
+                    reasoningLevel: reasoningLevel || currentSettings.reasoningLevel,
+                    region: region || currentSettings.regionPreset,
+                    model: currentSettings.model,
+                    temperature: currentSettings.temperature
                 })
             });
 
