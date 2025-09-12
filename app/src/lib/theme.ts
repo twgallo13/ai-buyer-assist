@@ -12,9 +12,9 @@ export function setStoredTheme(mode: ThemeMode) {
 }
 
 export function applyTheme(mode: ThemeMode) {
-    const root = document.documentElement;
-    root.removeAttribute('data-theme'); // reset
-    root.setAttribute('data-theme', mode);
+    const body = document.body;
+    body.removeAttribute('data-theme'); // reset
+    body.setAttribute('data-theme', mode);
 }
 
 export function initTheme() {

@@ -44,7 +44,7 @@ function App() {
 
   return (
     <div style={{ minHeight: '100vh' }}>
-      <header className="flex items-center justify-between p-3" style={{ borderBottom: '1px solid var(--border)' }}>
+      <header className="header flex items-center justify-between p-3">
         <div className="flex items-center gap-3">
           <strong>AI Buyer Assist</strong>
         </div>
@@ -65,7 +65,7 @@ function App() {
         </div>
       </header>
 
-      <nav style={{ borderBottom: '1px solid var(--border)', padding: '1rem', background: 'var(--card)' }}>
+      <nav className="nav" style={{ padding: '1rem' }}>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <button
