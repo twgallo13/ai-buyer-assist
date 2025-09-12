@@ -13,7 +13,7 @@ type Props = { result?: Result; error?: string };
 export default function ResultsPanel({ result, error }: Props) {
     if (error) return <div className="card p-3">❌ {error}</div>;
     if (!result) return null;
-    const isReal = result.mode === 'real' || (result.sources || []).some(s => s.source === 'gemini');
+    const isReal = result.mode === 'real' || (result.sources || []).some(s => s.source === 'gemini' || s.title?.toLowerCase().includes('gemini'));
     return (
         <div className="space-y-3">
             <div className="card p-3">
