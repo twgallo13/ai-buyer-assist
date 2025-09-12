@@ -1,6 +1,7 @@
 // server.cjs
 "use strict";
-require("dotenv").config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(process.cwd(), '.env') });
 
 const express = require("express");
 const cors = require("cors");
@@ -10,11 +11,10 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Fail fast if key missing
-if (!process.env.GEMINI_API_KEY) {
-    console.error("❌ GEMINI_API_KEY missing in .env");
-    process.exit(1);
-}
+// API key detection and logging
+const hasKey = !!(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim());
+console.log('[server] env path:', path.resolve(process.cwd(), '.env'));
+console.log('[server] keyPresent:', hasKey);
 
 // v1.7 Budget & Ops: Usage tracking, caching, and rate caps
 function today() {
@@ -72,8 +72,10 @@ app.get("/api/health", (_req, res) => {
     rolloverUsageIfNeeded();
     res.json({
         ok: true,
-        keyPresent: true,
-        version: "v1.9",
+        keyPresent: hasKey,
+        cwd: process.cwd(),
+        envFile: path.resolve(process.cwd(), '.env'),
+        version: "v2.0.6",
         usage: {
             day: usage.day,
             deepCalls: usage.deepCalls,
@@ -316,7 +318,7 @@ async function collectTrends(query, { timeoutMs = DEFAULT_TRENDS_TIMEOUT } = {})
 }
 
 // --- Gemini client ---
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = hasKey ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
 const MODEL_ID = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
 // --- Deep analysis ---
@@ -386,12 +388,16 @@ app.post("/api/deep", async (req, res) => {
         });
     }
 
-    // If key somehow missing at runtime, never 500 → mock
-    if (!process.env.GEMINI_API_KEY) {
+    // If key missing, return mock response (never 500)
+    if (!hasKey) {
         return res.status(200).json({
+            mode: 'deep',
+            sources: ['mock', 'no-key'],
+            note: 'Gemini key missing',
             summary: "Mock deep analysis (no API key present).",
             indices: { demand: 72, momentum: 68, saturation: 41, freshness: 64, styleFit: 77 },
-            sources: ["mock"],
+            verdict: 'Hold',
+            confidence: 50
         });
     }
 
