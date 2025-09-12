@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 export interface SearchHeroProps {
     onRunQuick: (query: string, reasoningLevel: string, region: string) => void;

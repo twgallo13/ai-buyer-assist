@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import {useEffect} from 'react';
 import '../styles/theme.css';
 import {applyTheme} from '../lib/theme';
 import { useEffect as useEffectOrig, useState } from 'react';

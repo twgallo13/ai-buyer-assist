@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 import CsvNotice from '../components/analyze/CsvNotice';
 import QueryBuilder from '../components/analyze/QueryBuilder';
 import SearchForm from '../components/analyze/SearchForm';

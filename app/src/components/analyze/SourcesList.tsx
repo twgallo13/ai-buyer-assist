@@ -1,4 +1,3 @@
-import React from 'react';
 import type { AnalysisResult, Citation } from '../../lib/types';
 
 interface SourcesListProps {

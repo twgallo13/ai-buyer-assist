@@ -1,4 +1,3 @@
-import React from 'react';
 
 interface DashboardShellProps {
     children: React.ReactNode;

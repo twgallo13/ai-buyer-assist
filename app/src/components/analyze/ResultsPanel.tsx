@@ -1,4 +1,3 @@
-import React from 'react';
 
 type Explain = { factors?: Array<{ label: string; impact: '+' | '-' | '~'; note: string }> };
 type Result = {

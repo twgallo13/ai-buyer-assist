@@ -1,4 +1,3 @@
-import React from 'react';
 import type { AnalysisResult } from '../../lib/types';
 
 export interface DecisionSnapshotProps {
