@@ -140,6 +140,18 @@ export default function TrendRadar() {
                                 no data
                             </span>
                         )}
+                        <span style={{
+                            padding: '0.25rem 0.5rem',
+                            backgroundColor: '#4f46e5',
+                            color: 'white',
+                            borderRadius: '0.25rem',
+                            fontSize: '0.75rem'
+                        }}>
+                            quick analysis
+                        </span>
+                    </div>
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', opacity: 0.7 }}>
+                        Note: External signals available with Deep analysis in Analyze page
                     </div>
                 </>
             ) : (

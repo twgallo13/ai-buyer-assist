@@ -13,6 +13,8 @@ export type Explain = {
     inputs?: Record<string, unknown>;  // e.g. velocity avg, st28/st90 deltas, filters used
 };
 
+export type Citation = { title: string; url: string; source: string };
+
 export type AnalysisResult = {
     summary: string;
     indices: Indices;
@@ -21,4 +23,5 @@ export type AnalysisResult = {
     confidence?: number;        // 0..100 when deep
     explain?: Explain;
     timestamp?: string;         // ISO
+    citations?: Citation[];
 };

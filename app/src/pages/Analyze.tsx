@@ -874,9 +874,30 @@ const Analyze: React.FC = () => {
                                         {source}
                                     </span>
                                 ))}
+                                {result.sources.includes('trends') && (
+                                    <span style={{ ...sourceChipStyle, backgroundColor: '#2196f3' }}>
+                                        + External Signals
+                                    </span>
+                                )}
                             </div>
                         </div>
                     )}
+
+                    {result?.citations?.length ? (
+                        <div className="mt-4 rounded-lg bg-[#14141a] p-4">
+                            <div className="text-sm opacity-70 mb-2">Citations</div>
+                            <ul className="space-y-1">
+                                {result.citations.map((c, i) => (
+                                    <li key={i} className="text-sm">
+                                        <a className="underline hover:no-underline" href={c.url} target="_blank" rel="noreferrer">
+                                            {c.title}
+                                        </a>
+                                        <span className="ml-2 opacity-60">({c.source})</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ) : null}
                 </div>
             )}
         </div>

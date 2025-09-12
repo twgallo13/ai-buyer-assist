@@ -46,7 +46,7 @@ app.use(express.json({ limit: "1mb" }));
 
 // Health
 app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, keyPresent: true, version: "v1.7" });
+    res.json({ ok: true, keyPresent: true, version: "v1.8" });
 });
 
 // Usage endpoints
@@ -67,6 +67,17 @@ app.post('/api/usage/reset', (req, res) => {
     USAGE = { date: today(), calls: 0, blocked: 0, cacheHits: 0, lastResetAt: Date.now() };
     CACHE.clear();
     res.json({ ok: true, resetAt: USAGE.lastResetAt });
+});
+
+// Trends endpoint
+app.get('/api/trends', async (req, res) => {
+    try {
+        const query = String(req.query.query || '');
+        const out = await collectTrends(query, {});
+        return res.json({ ok: true, ...out });
+    } catch (e) {
+        return res.json({ ok: true, items: [], sources: [], tookMs: 0 });
+    }
 });
 
 // --- Helpers ---
@@ -99,6 +110,64 @@ function mapGeminiToIndices(text) {
         freshness: 58,
         styleFit: 70,
     };
+}
+
+// --- v1.8 External Signals & Citations ---
+const DEFAULT_TRENDS_TIMEOUT = Number(process.env.TRENDS_TIMEOUT_MS || 4000);
+const ENABLE_STUB = String(process.env.TRENDS_ENABLE_STUB ?? 'true') === 'true';
+const ENABLE_NEWS = String(process.env.TRENDS_ENABLE_NEWS ?? 'false') === 'false' ? false : true;
+const ENABLE_SOCIAL = String(process.env.TRENDS_ENABLE_SOCIAL ?? 'false') === 'false' ? false : true;
+
+// minimal stub provider
+async function stubProvider(query) {
+    const q = (query || '').toLowerCase();
+    const items = [
+        { title: 'Jordan 1 demand up YoY', url: 'https://example.com/j1-demand', source: 'stub-news', score: 78, topic: 'Jordan 1' },
+        { title: 'Adidas Superstar steady momentum', url: 'https://example.com/superstar-momentum', source: 'stub-news', score: 62, topic: 'Superstar' },
+        { title: 'Neutral tones trending in lifestyle', url: 'https://example.com/neutral-tones', source: 'stub-style', score: 71, topic: 'Color' },
+        { title: 'Retro basketball silhouettes resurging', url: 'https://example.com/retro-bball', source: 'stub-style', score: 69, topic: 'Silhouette' },
+        { title: 'HOKA popularity up in running', url: 'https://example.com/hoka-running', source: 'stub-news', score: 74, topic: 'Running' },
+        { title: 'New Balance collab cadence high', url: 'https://example.com/nb-collabs', source: 'stub-news', score: 66, topic: 'Collab' },
+    ];
+    // simple filter by query tokens
+    const tokens = q.split(/\s+/).filter(Boolean);
+    const filtered = tokens.length
+        ? items.filter(it => tokens.some(t => it.title.toLowerCase().includes(t) || it.topic.toLowerCase().includes(t)))
+        : items;
+    return filtered.slice(0, 6);
+}
+
+async function collectTrends(query, { timeoutMs = DEFAULT_TRENDS_TIMEOUT } = {}) {
+    const start = Date.now();
+    const tasks = [];
+    const srcs = [];
+
+    if (ENABLE_STUB) {
+        tasks.push(stubProvider(query).catch(() => []));
+        srcs.push('stub');
+    }
+    // placeholders for future real providers:
+    if (ENABLE_NEWS) {
+        // tasks.push(newsProvider(query).catch(()=>[]));
+        srcs.push('news');
+    }
+    if (ENABLE_SOCIAL) {
+        // tasks.push(socialProvider(query).catch(()=>[]));
+        srcs.push('social');
+    }
+
+    if (!tasks.length) return { items: [], sources: [], tookMs: Date.now() - start };
+
+    const withTimeout = Promise.race([
+        Promise.all(tasks),
+        new Promise(res => setTimeout(() => res([]), timeoutMs))
+    ]);
+
+    let results = await withTimeout;
+    if (!Array.isArray(results)) results = [];
+    // flatten
+    const items = results.flat().filter(Boolean);
+    return { items, sources: srcs, tookMs: Date.now() - start };
 }
 
 // --- Gemini client ---
@@ -253,6 +322,13 @@ Keep it practical and honest. Higher "confidence" when CSV patterns are strong; 
                 factors: [],
                 inputs: { query: query || '', csvRows: csvSize }
             };
+        }
+
+        // Collect external trends/citations
+        const trendOut = await collectTrends(query, {});
+        if (trendOut.items?.length) {
+            responseObj.citations = trendOut.items.map(({ title, url, source }) => ({ title, url, source }));
+            responseObj.sources = Array.from(new Set([...(responseObj.sources || []), 'trends']));
         }
 
         // Store in cache

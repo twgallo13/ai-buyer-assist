@@ -75,9 +75,33 @@ npm run server  # API on :3001
 5. **Analyze**: Run Quick (instant) or Deep (AI-powered) analysis
 6. **Monitor Usage**: Check the Usage tab for budget and cache statistics
 
+### External Signals & Citations (v1.8)
+- **Trends Aggregator**: Pluggable system for external trend signals
+- **Citations**: Deep Analysis automatically includes relevant citations
+- **Stub Provider**: Built-in mock provider with realistic footwear/apparel trends
+- **Future Ready**: Hooks prepared for news and social media providers
+
+#### Endpoint: `/api/trends?query=...`
+Returns trend signals matching the query with titles, URLs, and sources.
+
+#### Environment Variables
+```bash
+TRENDS_ENABLE_STUB=true     # Default: true (built-in provider)
+TRENDS_ENABLE_NEWS=false    # Future: news API integration
+TRENDS_ENABLE_SOCIAL=false  # Future: social media integration  
+TRENDS_TIMEOUT_MS=4000      # Request timeout in milliseconds
+```
+
+#### How It Works
+- Deep analysis automatically collects relevant trends for each query
+- Results include citations with clickable links to sources
+- Works without extra API keys (stub provider enabled by default)
+- Graceful fallback - analysis continues even if trends fail
+
 ## API Endpoints
 
 - `GET /api/health` - Health check
 - `POST /api/deep` - Deep analysis with caching and rate limiting
 - `GET /api/usage` - Usage statistics
 - `POST /api/usage/reset` - Reset usage counters (development only)
+- `GET /api/trends` - External trend signals and citations

@@ -96,6 +96,28 @@ export default function SettingsPage() {
                     </div>
                 </div>
             </section>
+
+            <section className="space-y-2">
+                <h3 className="font-medium">External Signals</h3>
+                <p className="text-sm opacity-70">External trend providers for Deep analysis citations.</p>
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2 bg-black/20 rounded">
+                        <span>Stub provider (built-in)</span>
+                        <span className="px-2 py-1 bg-green-600 text-white text-xs rounded">ON</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-black/20 rounded opacity-50">
+                        <span>News provider</span>
+                        <span className="px-2 py-1 bg-gray-600 text-white text-xs rounded">OFF</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-black/20 rounded opacity-50">
+                        <span>Social provider</span>
+                        <span className="px-2 py-1 bg-gray-600 text-white text-xs rounded">OFF</span>
+                    </div>
+                    <div className="text-xs opacity-60 mt-2">
+                        Timeout: 4000ms (configured via server environment)
+                    </div>
+                </div>
+            </section>
         </div>
     );
 }

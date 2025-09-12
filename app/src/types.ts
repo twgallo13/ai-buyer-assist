@@ -18,10 +18,13 @@ export type Indices = {
     styleFit?: number;
 };
 
+export type Citation = { title: string; url: string; source: string };
+
 export type DeepResult = {
     mode?: 'real' | 'mock-nokey' | 'mock-fallback';
     summary: string;
     indices?: Indices;
     sources?: string[];
     confidence?: number;
+    citations?: Citation[];
 };
