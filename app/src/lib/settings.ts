@@ -21,6 +21,35 @@ export type Settings = {
     defaultMode: 'quick' | 'deep';
 };
 
+export type BuyerPresetKey = 'footwear'|'apparel'|'regional_us'|'regional_eu';
+
+export const BUYER_PRESETS: Record<BuyerPresetKey, {
+  label: string;
+  weights: Weights;
+  thresholds: Thresholds;
+}> = {
+  footwear: {
+    label: 'Footwear (Default)',
+    weights: { demand:3, momentum:3, saturation:2, freshness:2, styleFit:1 },
+    thresholds: { demandGo: 65, momentumGo: 60, freshnessGo: 55, demandHold: 45, momentumHold: 40, freshnessHold: 35 },
+  },
+  apparel: {
+    label: 'Apparel',
+    weights: { demand:2, momentum:2, saturation:2, freshness:3, styleFit:2 },
+    thresholds: { demandGo: 62, momentumGo: 58, freshnessGo: 60, demandHold: 42, momentumHold: 38, freshnessHold: 40 },
+  },
+  regional_us: {
+    label: 'Regional — US',
+    weights: { demand:3, momentum:2, saturation:2, freshness:2, styleFit:1 },
+    thresholds: { demandGo: 64, momentumGo: 59, freshnessGo: 54, demandHold: 44, momentumHold: 39, freshnessHold: 34 },
+  },
+  regional_eu: {
+    label: 'Regional — EU',
+    weights: { demand:2, momentum:3, saturation:2, freshness:2, styleFit:1 },
+    thresholds: { demandGo: 63, momentumGo: 61, freshnessGo: 56, demandHold: 43, momentumHold: 41, freshnessHold: 36 },
+  },
+};
+
 const DEFAULTS: Settings = {
     model: 'gemini-1.5-flash',
     temperature: 0.4,
@@ -65,3 +94,16 @@ export function updateSettings(patch: Partial<Settings>) {
 }
 export function subscribeSettings(fn: Sub) { subs.add(fn); return () => { subs.delete(fn); }; }
 export function getSettingsVersion() { return _version; }
+
+export function applyPreset(key: BuyerPresetKey){
+  const p = BUYER_PRESETS[key];
+  if (!p) return;
+  _settings.weights = { ...p.weights };
+  _settings.thresholds = { ...p.thresholds };
+  _version++; 
+  // Persist to localStorage
+  try { 
+    localStorage.setItem('aba_settings', JSON.stringify(_settings)); 
+  } catch {}
+  subs.forEach(fn => fn(_settings));
+}

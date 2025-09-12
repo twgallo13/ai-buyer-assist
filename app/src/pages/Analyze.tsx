@@ -1,8 +1,12 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import type { Row, DeepResult } from '../types';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import type { Row } from '../types';
+import type { AnalysisResult } from '../lib/types';
 import { getSettings } from '../lib/settings';
-import { computeQuickIndices, verdictFrom } from '../lib/verdict';
-import { getCsvRows, setCsvRows, subscribeCsv } from '../lib/csv-store';
+import { computeQuickIndices, verdictFrom, explainQuick } from '../lib/verdict';
+import { getCsvRows, setCsv, setCsvRows, subscribeCsv, getCsvValidation } from '../lib/csv-store';
+import { saveSession } from '../lib/sessions';
+import { validateCsv } from '../lib/csv-validate';
+import { uniqueValues, buildQuery, type QueryParts } from '../lib/query-builder';
 
 // Load persisted mode or use settings default
 function getLastMode(): 'quick' | 'deep' {
@@ -18,7 +22,7 @@ function getLastMode(): 'quick' | 'deep' {
 const Analyze: React.FC = () => {
     const [input, setInput] = useState('');
     const [mode, setMode] = useState<'quick' | 'deep'>(getLastMode());
-    const [result, setResult] = useState<DeepResult | null>(null);
+    const [result, setResult] = useState<AnalysisResult | null>(null);
     const [csvRows, setCsvRowsLocal] = useState<any[]>(getCsvRows());
     const [showBudgetBanner, setShowBudgetBanner] = useState(false);
     const [showFallbackBanner, setShowFallbackBanner] = useState(false);
@@ -31,12 +35,40 @@ const Analyze: React.FC = () => {
 
     const [previewRows, setPreviewRows] = useState<Row[]>([]);
 
+    // Guided Query Builder state
+    const [showQueryBuilder, setShowQueryBuilder] = useState(false);
+    const [queryParts, setQueryParts] = useState<QueryParts>({});
+    
+    // Memoized unique values for dropdowns
+    const collections = useMemo(() => uniqueValues('Collection'), [csvRows]);
+    const categories = useMemo(() => uniqueValues('Category'), [csvRows]);
+    const colors = useMemo(() => uniqueValues('Color Family'), [csvRows]);
+    const genders = useMemo(() => uniqueValues('Gender Target'), [csvRows]);
+    
+    // CSV validation
+    const validation = getCsvValidation();
+    const csvIsValid = validation?.ok !== false;
+    const hasWarnings = validation && validation.issues.length > 0;
+
     // Subscribe to CSV changes
     useEffect(() => {
         const unsubscribe = subscribeCsv((newRows) => {
             setCsvRowsLocal(newRows);
         });
         return unsubscribe;
+    }, []);
+
+    // Check for prefilled query from Compare page
+    useEffect(() => {
+        try {
+            const prefill = sessionStorage.getItem('aba_prefill_query');
+            if (prefill) {
+                setInput(prefill);
+                sessionStorage.removeItem('aba_prefill_query');
+            }
+        } catch {
+            // Ignore session storage errors
+        }
     }, []);
 
     // Persist mode changes
@@ -147,8 +179,14 @@ const Analyze: React.FC = () => {
         const reader = new FileReader();
         reader.onload = (e) => {
             const csvText = e.target?.result as string;
+            const lines = csvText.split('\n').filter(line => line.trim());
+            if (lines.length < 2) return;
+
+            const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
             const parsedRows = parseCSV(csvText);
-            setCsvRows(parsedRows);
+            const validation = validateCsv(headers, parsedRows);
+            
+            setCsv(parsedRows, headers, validation);
             setPreviewRows(parsedRows.slice(0, 200));
             setCsvLoaded(true);
         };
@@ -201,11 +239,16 @@ const Analyze: React.FC = () => {
                 const s = getSettings();
                 const indices = computeQuickIndices(csvRows || [], s.weights, s.scenario);
                 const verdict = verdictFrom(indices, s.thresholds);
-                setResult({
+                const explain = explainQuick(csvRows || [], s.weights, s.scenario);
+                const result: AnalysisResult = {
                     summary: `Quick analysis verdict: ${verdict}.`,
                     indices,
-                    sources: ['quick', 'csv']
-                });
+                    verdict,
+                    sources: ['csv', 'quick'],
+                    explain,
+                    timestamp: new Date().toISOString()
+                };
+                setResult(result);
                 setShowMockBanner(false);
                 setShowBudgetBanner(false);
                 setShowFallbackBanner(false);
@@ -469,8 +512,165 @@ const Analyze: React.FC = () => {
                 </div>
             )}
 
+            {/* CSV Validation Banners */}
+            {validation && !validation.ok && (
+                <div style={{ 
+                    ...sectionStyle, 
+                    maxWidth: '600px', 
+                    backgroundColor: '#f44336', 
+                    color: '#fff', 
+                    marginBottom: '20px' 
+                }}>
+                    <strong>CSV Missing Required Headers:</strong> Please upload a file with: {validation.issues
+                        .filter(i => i.type === 'missingHeader')
+                        .map(i => (i as any).header)
+                        .join(', ')}
+                </div>
+            )}
+            
+            {hasWarnings && validation?.ok && (
+                <div style={{ 
+                    ...sectionStyle, 
+                    maxWidth: '600px', 
+                    backgroundColor: '#ff9800', 
+                    color: '#fff', 
+                    marginBottom: '20px' 
+                }}>
+                    <strong>Data warnings ({validation.issues.length}):</strong> Some rows may have data quality issues.
+                </div>
+            )}
+
             <form onSubmit={handleSubmit} style={{ ...sectionStyle, maxWidth: '600px' }}>
                 <h3>Analysis</h3>
+                
+                {/* Guided Query Builder */}
+                <div style={{ marginBottom: '16px' }}>
+                    <button
+                        type="button"
+                        onClick={() => setShowQueryBuilder(!showQueryBuilder)}
+                        style={{
+                            backgroundColor: 'transparent',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            color: '#f2f2f5',
+                            padding: '8px 12px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            marginBottom: showQueryBuilder ? '12px' : '0'
+                        }}
+                    >
+                        {showQueryBuilder ? '▼' : '▶'} Guided Query Builder
+                    </button>
+                    
+                    {showQueryBuilder && (
+                        <div style={{
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '4px',
+                            padding: '16px',
+                            backgroundColor: 'rgba(0,0,0,0.2)',
+                            marginBottom: '16px'
+                        }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+                                <select
+                                    value={queryParts.collection || ''}
+                                    onChange={(e) => setQueryParts({ ...queryParts, collection: e.target.value || undefined })}
+                                    style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
+                                >
+                                    <option value="">Collection...</option>
+                                    {collections.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                
+                                <select
+                                    value={queryParts.category || ''}
+                                    onChange={(e) => setQueryParts({ ...queryParts, category: e.target.value || undefined })}
+                                    style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
+                                >
+                                    <option value="">Category...</option>
+                                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                
+                                <select
+                                    value={queryParts.colorFamily || ''}
+                                    onChange={(e) => setQueryParts({ ...queryParts, colorFamily: e.target.value || undefined })}
+                                    style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
+                                >
+                                    <option value="">Color...</option>
+                                    {colors.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                
+                                <select
+                                    value={queryParts.genderTarget || ''}
+                                    onChange={(e) => setQueryParts({ ...queryParts, genderTarget: e.target.value || undefined })}
+                                    style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
+                                >
+                                    <option value="">Gender...</option>
+                                    {genders.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            
+                            <input
+                                type="text"
+                                placeholder="Additional text (optional)"
+                                value={queryParts.text || ''}
+                                onChange={(e) => setQueryParts({ ...queryParts, text: e.target.value || undefined })}
+                                style={{ width: '100%', padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', marginBottom: '12px' }}
+                            />
+                            
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const query = buildQuery(queryParts);
+                                    setInput(query);
+                                }}
+                                style={{
+                                    backgroundColor: '#6366f1',
+                                    color: '#fff',
+                                    border: 'none',
+                                    padding: '8px 16px',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Compose Query
+                            </button>
+                            
+                            {/* Active Filter Chips */}
+                            <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {Object.entries(queryParts).filter(([_, v]) => v).map(([key, value]) => (
+                                    <span
+                                        key={key}
+                                        style={{
+                                            backgroundColor: '#6366f1',
+                                            color: '#fff',
+                                            padding: '4px 8px',
+                                            borderRadius: '12px',
+                                            fontSize: '12px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                        }}
+                                    >
+                                        {key}: {value}
+                                        <button
+                                            type="button"
+                                            onClick={() => setQueryParts({ ...queryParts, [key]: undefined })}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: '#fff',
+                                                cursor: 'pointer',
+                                                fontSize: '14px'
+                                            }}
+                                        >
+                                            ×
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 <input
                     type="text"
                     value={input}
@@ -500,7 +700,7 @@ const Analyze: React.FC = () => {
                     </button>
                 </div>
 
-                <button type="submit" style={submitButtonStyle} disabled={isLoading || !input.trim()}>
+                <button type="submit" style={submitButtonStyle} disabled={isLoading || !input.trim() || !csvIsValid}>
                     {isLoading ? 'Analyzing...' : `Run ${mode} Analysis`}
                 </button>
             </form>
@@ -551,7 +751,26 @@ const Analyze: React.FC = () => {
                         </div>
                     )}
 
-                    <h3>Analysis Result</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <h3>Analysis Result</h3>
+                        <button
+                            onClick={() => {
+                                const sessionId = saveSession(result);
+                                alert(`Session saved! ID: ${sessionId}`);
+                            }}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: '#6366f1',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px'
+                            }}
+                        >
+                            Save Session
+                        </button>
+                    </div>
 
                     {includedRowsCount > 0 && (
                         <p style={{ color: '#4CAF50', fontSize: '14px', marginBottom: '10px' }}>
@@ -560,6 +779,30 @@ const Analyze: React.FC = () => {
                     )}
 
                     <p style={{ marginBottom: '20px' }}>{result.summary}</p>
+
+                    {result?.explain && (
+                        <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '12px' }}>
+                            <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '12px' }}>
+                                <div style={{ fontSize: '14px', opacity: 0.8, marginBottom: '8px' }}>Why this verdict?</div>
+                                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {result.explain.factors.map((f, i) => (
+                                        <li key={i} style={{ fontSize: '14px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                            <span style={{
+                                                color: f.impact === '+' ? '#4CAF50' : f.impact === '-' ? '#f44336' : '#9e9e9e',
+                                                fontWeight: 'bold',
+                                                minWidth: '16px'
+                                            }}>
+                                                {f.impact}
+                                            </span>
+                                            <span style={{ opacity: 0.9 }}>{f.label}</span>
+                                            <span style={{ opacity: 0.6, fontSize: '12px' }}>— {f.note}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
+
                     {'confidence' in result && result.confidence !== undefined && (
                         <div style={{ marginBottom: '20px', fontSize: '14px', opacity: 0.8 }}>Confidence: {Math.round(result.confidence)}%</div>
                     )}

@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { getSettings, subscribeSettings } from '../lib/settings';
-import { getCsvRows, subscribeCsv } from '../lib/csv-store';
+import { getCsvRows, subscribeCsv, getCsvValidation } from '../lib/csv-store';
 import { computeQuickIndices } from '../lib/verdict';
 
 export default function TrendRadar() {
     const [settings, setSettings] = useState(getSettings());
     const [csvRows, setCsvRows] = useState(getCsvRows());
     const [indices, setIndices] = useState({ demand: 0, momentum: 0, saturation: 0, freshness: 0, styleFit: 0 });
+    
+    const validation = getCsvValidation();
+    const csvIsValid = validation?.ok !== false;
 
     useEffect(() => {
         const unsubSettings = subscribeSettings(setSettings);
@@ -39,8 +42,23 @@ export default function TrendRadar() {
         <div style={{ padding: '2rem', backgroundColor: '#0b0b0f', minHeight: '100vh' }}>
             <h2 style={{ color: '#f2f2f5', marginBottom: '2rem' }}>Trend Radar</h2>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-                {Object.entries(indices).map(([key, value]) => (
+            {/* CSV Validation Banner */}
+            {!csvIsValid && (
+                <div style={{
+                    backgroundColor: '#f44336',
+                    color: '#fff',
+                    padding: '1rem',
+                    borderRadius: '0.5rem',
+                    marginBottom: '2rem'
+                }}>
+                    <strong>CSV Missing Required Headers:</strong> Trend analysis requires valid CSV data with required headers.
+                </div>
+            )}
+
+            {csvIsValid ? (
+                <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                        {Object.entries(indices).map(([key, value]) => (
                     <div
                         key={key}
                         onClick={() => handleDrillDown(key)}
@@ -122,7 +140,18 @@ export default function TrendRadar() {
                         no data
                     </span>
                 )}
-            </div>
+                    </div>
+                </>
+            ) : (
+                <div style={{ 
+                    textAlign: 'center', 
+                    color: '#9ca3af', 
+                    fontSize: '1.125rem', 
+                    marginTop: '3rem' 
+                }}>
+                    Please upload a valid CSV file to see trend analysis.
+                </div>
+            )}
         </div>
     );
 }

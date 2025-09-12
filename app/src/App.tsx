@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import Analyze from './pages/Analyze'
 import TrendRadar from './pages/TrendRadar'
-import SettingsPage from './pages/Settings'
+import ComparePage from './pages/Compare'
 import BatchPage from './pages/Batch'
+import SettingsPage from './pages/Settings'
+import SessionsPage from './pages/Sessions'
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<'analyze' | 'trendradar' | 'batch' | 'settings'>('analyze');
+  const [currentPage, setCurrentPage] = useState<'analyze' | 'trendradar' | 'compare' | 'batch' | 'settings' | 'sessions'>('analyze');
 
   const navButtonStyle = (isActive: boolean) => ({
     padding: '0.5rem 1rem',
@@ -35,6 +37,12 @@ function App() {
             Trend Radar
           </button>
           <button
+            onClick={() => setCurrentPage('compare')}
+            style={navButtonStyle(currentPage === 'compare')}
+          >
+            Compare
+          </button>
+          <button
             onClick={() => setCurrentPage('batch')}
             style={navButtonStyle(currentPage === 'batch')}
           >
@@ -46,13 +54,21 @@ function App() {
           >
             Settings
           </button>
+          <button
+            onClick={() => setCurrentPage('sessions')}
+            style={navButtonStyle(currentPage === 'sessions')}
+          >
+            Sessions
+          </button>
         </div>
       </nav>
 
       {currentPage === 'analyze' && <Analyze />}
       {currentPage === 'trendradar' && <TrendRadar />}
+      {currentPage === 'compare' && <ComparePage />}
       {currentPage === 'batch' && <BatchPage />}
       {currentPage === 'settings' && <SettingsPage />}
+      {currentPage === 'sessions' && <SessionsPage />}
     </div>
   );
 }

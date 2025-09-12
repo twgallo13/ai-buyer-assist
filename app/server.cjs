@@ -71,7 +71,7 @@ const MODEL_ID = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
 // --- Deep analysis ---
 app.post("/api/deep", async (req, res) => {
-    const { query, rows, model, temperature } = req.body || {};
+    const { query, rows, model, temperature, reasoningLevel } = req.body || {};
     const csvSize = Array.isArray(rows) ? rows.length : 0;
     const chosenModel = (typeof model === 'string' && model.trim()) ? model : MODEL_ID;
     const temp = Number.isFinite(Number(temperature)) ? Number(temperature) : 0.4;
@@ -96,6 +96,19 @@ app.post("/api/deep", async (req, res) => {
     }
 
     try {
+        const explainPrompt = reasoningLevel ? `
+Also include an "explain" object with reasoning:
+{
+  "explain": {
+    "mode": "deep",
+    "factors": [
+      {"label": "Factor name", "impact": "+|-|~", "note": "Brief explanation"},
+      ...
+    ],
+    "inputs": {"query": "${query || ''}", "csvRows": ${csvSize}}
+  }
+}` : '';
+
         const sys = `
 You are a retail trend assistant for footwear/apparel. Return concise KPIs (0–100) for:
 - demand, momentum, saturation, freshness, styleFit
@@ -109,8 +122,9 @@ ALWAYS return a single JSON object:
   "saturation": 0-100,
   "freshness": 0-100,
   "styleFit": 0-100,
-  "confidence": 0-100
+  "confidence": 0-100${explainPrompt ? ',\n  "explain": {...}' : ''}
 }
+${explainPrompt}
 Keep it practical and honest. Higher "confidence" when CSV patterns are strong; lower when inferring without data.
 `;
 
@@ -133,30 +147,61 @@ Keep it practical and honest. Higher "confidence" when CSV patterns are strong; 
 
         const text = result.response.text();
         const indices = mapGeminiToIndices(text);
-        // Try to pull confidence if present
+
+        // Try to parse the full JSON response
         let confidence = 60;
+        let explain = null;
+        let summary = "AI deep analysis complete.";
+
         try {
             const m = text.match(/\{[\s\S]*\}/);
             if (m) {
                 const obj = JSON.parse(m[0]);
+
                 if (typeof obj.confidence !== "undefined") {
                     const n = Number(obj.confidence);
                     if (Number.isFinite(n)) confidence = Math.max(0, Math.min(100, Math.round(n)));
                 }
+
+                if (obj.summary) {
+                    summary = obj.summary;
+                }
+
+                if (obj.explain) {
+                    explain = obj.explain;
+                }
             }
         } catch { }
 
-        const summaryMatch = text.match(/"summary"\s*:\s*"([^"]+)"/);
-        const summary =
-            (summaryMatch && summaryMatch[1]) ||
-            "AI deep analysis complete.";
+        // Fallback summary extraction
+        if (summary === "AI deep analysis complete.") {
+            const summaryMatch = text.match(/"summary"\s*:\s*"([^"]+)"/);
+            if (summaryMatch && summaryMatch[1]) {
+                summary = summaryMatch[1];
+            }
+        }
 
-        return res.status(200).json({
+        const responseObj = {
             summary,
             indices,
             confidence,
             sources: ["gemini", csvSize > 0 ? "csv" : "no-csv"],
-        });
+            timestamp: new Date().toISOString()
+        };
+
+        // Add explain if present
+        if (explain) {
+            responseObj.explain = explain;
+        } else if (reasoningLevel) {
+            // Provide fallback explain if requested but not returned
+            responseObj.explain = {
+                mode: 'deep',
+                factors: [],
+                inputs: { query: query || '', csvRows: csvSize }
+            };
+        }
+
+        return res.status(200).json(responseObj);
     } catch (error) {
         console.error("Deep analysis error:", error);
         // Never 500 — return a graceful fallback

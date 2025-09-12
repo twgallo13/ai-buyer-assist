@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getSettings, updateSettings, subscribeSettings, type Settings } from '../lib/settings';
+import { getSettings, updateSettings, subscribeSettings, applyPreset, BUYER_PRESETS, type Settings, type BuyerPresetKey } from '../lib/settings';
 
 export default function SettingsPage() {
     const [s, setS] = useState<Settings>(getSettings());
@@ -31,6 +31,25 @@ export default function SettingsPage() {
                         <option value="deep">Deep (Gemini)</option>
                     </select>
                 </label>
+            </section>
+
+            <section className="space-y-2">
+                <h3 className="font-medium">Buyer Presets</h3>
+                <p className="text-sm opacity-70">Presets update weights & thresholds; you can still tweak manually.</p>
+                <select 
+                    className="mt-1 w-full rounded bg-black/30 p-2" 
+                    onChange={e => {
+                        if (e.target.value) {
+                            applyPreset(e.target.value as BuyerPresetKey);
+                        }
+                    }}
+                    defaultValue=""
+                >
+                    <option value="">Apply a preset...</option>
+                    {Object.entries(BUYER_PRESETS).map(([key, preset]) => (
+                        <option key={key} value={key}>{preset.label}</option>
+                    ))}
+                </select>
             </section>
 
             <section className="space-y-2">

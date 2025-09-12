@@ -1,6 +1,5 @@
 import type { Thresholds, Weights, Scenario } from './settings';
-
-export type Indices = { demand: number; momentum: number; saturation: number; freshness: number; styleFit: number; };
+import type { Indices, Explain } from './types';
 
 type Row = {
     velocityUnitsPerDay?: number; st28?: number; st90?: number;
@@ -46,4 +45,47 @@ export function verdictFrom(indices: Indices, t: Thresholds): 'Go' | 'Hold' | 'S
     if (go) return 'Go';
     const hold = (indices.demand >= t.demandHold) && (indices.momentum >= t.momentumHold) && (indices.freshness >= t.freshnessHold);
     return hold ? 'Hold' : 'Skip';
+}
+
+export function explainQuick(rows: Row[], weights: Weights, scenario: Scenario): Explain {
+    const r = rows.slice(0, 100);
+    const vel = r.map(x => n(x.velocityUnitsPerDay));
+    const st28 = r.map(x => n(x.st28));
+    const st90 = r.map(x => n(x.st90));
+    const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+
+    const v = avg(vel);
+    const s28 = avg(st28);
+    const s90 = avg(st90);
+    const delta = s28 - s90;
+
+    const factors: Explain['factors'] = [
+        {
+            label: 'Velocity',
+            impact: v > 2 ? '+' : v < 1 ? '-' : '~',
+            note: `Avg units/day ≈ ${v.toFixed(2)}`
+        },
+        {
+            label: 'Sell-through (28d)',
+            impact: s28 > 0.6 ? '+' : s28 < 0.3 ? '-' : '~',
+            note: `ST28 ≈ ${(s28 * 100).toFixed(0)}%`
+        },
+        {
+            label: 'Momentum (Δ28-90)',
+            impact: delta > 0.05 ? '+' : delta < -0.03 ? '-' : '~',
+            note: `Δ ≈ ${(delta * 100).toFixed(1)} pts`
+        },
+        {
+            label: 'Scenario push',
+            impact: scenario.marketingPush > 0.6 ? '+' : scenario.priceSensitivity > 0.7 ? '-' : '~',
+            note: `Mkt:${scenario.marketingPush} Collab:${scenario.collabFrequency} PriceSens:${scenario.priceSensitivity}`
+        },
+    ];
+
+    return {
+        mode: 'quick',
+        factors,
+        weights,
+        inputs: { velAvg: v, st28: s28, st90: s90, delta }
+    };
 }

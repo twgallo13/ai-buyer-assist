@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { getSettings } from '../lib/settings';
 import { computeQuickIndices, verdictFrom } from '../lib/verdict';
-import { getCsvRows, subscribeCsv } from '../lib/csv-store';
+import { getCsvRows, subscribeCsv, getCsvValidation } from '../lib/csv-store';
 
 export default function BatchPage() {
     const [csvRows, setCsvRows] = useState<any[]>(getCsvRows());
     const [out, setOut] = useState<any[]>([]);
     const [running, setRunning] = useState(false);
+    
+    const validation = getCsvValidation();
+    const csvIsValid = validation?.ok !== false;
 
     // Subscribe to CSV changes
     useEffect(() => {
@@ -69,9 +72,16 @@ export default function BatchPage() {
     return (
         <div className="p-4 space-y-3">
             <h2 className="text-xl font-semibold">Batch</h2>
+            
+            {!csvIsValid && (
+                <div className="bg-red-600 text-white p-3 rounded">
+                    <strong>CSV Missing Required Headers:</strong> Batch processing requires valid CSV data with required headers.
+                </div>
+            )}
+            
             <div className="flex gap-2">
-                <button disabled={running} onClick={() => runQuick()} className="rounded bg-white/10 px-3 py-2">Run Quick</button>
-                <button disabled={running} onClick={() => runDeep(3)} className="rounded bg-white/10 px-3 py-2">Run Deep</button>
+                <button disabled={running || !csvIsValid} onClick={() => runQuick()} className="rounded bg-white/10 px-3 py-2 disabled:opacity-50">Run Quick</button>
+                <button disabled={running || !csvIsValid} onClick={() => runDeep(3)} className="rounded bg-white/10 px-3 py-2 disabled:opacity-50">Run Deep</button>
                 <button disabled={!out.length} onClick={exportCsv} className="rounded bg-white/10 px-3 py-2">Export CSV</button>
             </div>
             <div className="text-sm opacity-75">Rows loaded: {csvRows.length} • Results: {out.length}</div>
