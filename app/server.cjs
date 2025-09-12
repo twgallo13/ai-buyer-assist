@@ -321,15 +321,22 @@ const MODEL_ID = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
 // --- Deep analysis ---
 app.post("/api/deep", async (req, res) => {
-    const { query, rows, model, temperature, reasoningLevel, settings } = req.body || {};
+    const { query, rows, model, temperature, reasoningLevel, settings, followUp, context } = req.body || {};
     const csvSize = Array.isArray(rows) ? rows.length : 0;
     const chosenModel = (typeof model === 'string' && model.trim()) ? model : MODEL_ID;
     const temp = Number.isFinite(Number(temperature)) ? Number(temperature) : 0.4;
+    
+    // Handle new Query structure
+    const queryText = typeof query === 'string' ? query : 
+                     (query?.terms ? query.terms.join(' ') : '');
+    const filters = query?.filters || {};
+    const horizonMonths = query?.horizonMonths || 6;
+    const intent = query?.intent || 'question';
 
     rolloverIfNeeded();
 
     // Check cache first
-    const key = stableKey({ query, settings, mode: 'deep' });
+    const key = stableKey({ query: queryText, filters, horizonMonths, settings, mode: 'deep', followUp });
     const hit = CACHE.get(key);
     if (hit && (Date.now() - hit.ts) < CACHE_TTL_MS) {
         USAGE.cacheHits++;
@@ -422,14 +429,24 @@ Keep it practical and honest. Higher "confidence" when CSV patterns are strong; 
 `;
 
         const sampleRows = JSON.stringify((rows || []).slice(0, 5), null, 2);
+        const filtersText = Object.entries(filters)
+            .filter(([_, values]) => Array.isArray(values) && values.length > 0)
+            .map(([key, values]) => `${key}: ${values.join(', ')}`)
+            .join('; ');
+            
         const user = [
-            `Query: ${query || "(none)"}`,
+            `Query: ${queryText || "(none)"}`,
+            `Intent: ${intent}`,
+            `Filters: ${filtersText || "(none)"}`,
+            `Horizon: ${horizonMonths} months`,
             `CSV rows included: ${csvSize}`,
             `CSV sample (first up to 5):`,
             sampleRows || "(none)",
+            followUp ? `Follow-up question: ${followUp}` : "",
+            context ? `Previous context: ${JSON.stringify(context, null, 2)}` : "",
             "",
             "Respond with JSON only."
-        ].join("\n");
+        ].filter(Boolean).join("\n");
 
         const modelClient = genAI.getGenerativeModel({
             model: chosenModel,

@@ -15,6 +15,20 @@ export type Explain = {
 
 export type Citation = { title: string; url: string; source: string };
 
+export type Query = {
+    intent: 'sku' | 'brand' | 'collection' | 'style' | 'color' | 'question';
+    terms: string[];
+    filters: {
+        collection?: string[];
+        category?: string[];
+        colorFamily?: string[];
+        gender?: string[];
+        brand?: string[];
+        class?: string[];
+    };
+    horizonMonths: number;
+};
+
 export type AnalysisResult = {
     verdict: 'Go' | 'Hold' | 'Skip';
     demand: number;
