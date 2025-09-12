@@ -6,6 +6,7 @@ import BatchPage from './pages/Batch'
 import SettingsPage from './pages/Settings'
 import SessionsPage from './pages/Sessions'
 import UsagePage from './pages/Usage'
+import ThemeToggle from './components/ThemeToggle'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'analyze' | 'trendradar' | 'compare' | 'batch' | 'settings' | 'sessions' | 'usage'>('analyze');
@@ -32,19 +33,40 @@ function App() {
 
   const navButtonStyle = (isActive: boolean) => ({
     padding: '0.5rem 1rem',
-    backgroundColor: isActive ? '#6366f1' : 'transparent',
-    border: '1px solid #6366f1',
+    backgroundColor: isActive ? 'var(--accent)' : 'transparent',
+    border: '1px solid var(--accent)',
     borderRadius: '0.25rem',
-    color: isActive ? '#ffffff' : '#6366f1',
+    color: isActive ? 'var(--accent-contrast)' : 'var(--accent)',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
     outline: 'none'
   });
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#0b0b0f', color: '#f2f2f5' }}>
-      <nav style={{ borderBottom: '1px solid #333', padding: '1rem', backgroundColor: '#14141a' }}>
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div style={{ minHeight: '100vh' }}>
+      <header className="flex items-center justify-between p-3" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="flex items-center gap-3">
+          <strong>AI Buyer Assist</strong>
+        </div>
+        <div className="flex items-center gap-4">
+          {usage && (
+            <div style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: usage.deepCalls >= usage.budget ? '#dc2626' : '#059669',
+              borderRadius: '0.25rem',
+              fontSize: '0.875rem',
+              fontWeight: '500',
+              color: 'white'
+            }}>
+              Deep: {usage.deepCalls} / {usage.budget}
+            </div>
+          )}
+          <ThemeToggle />
+        </div>
+      </header>
+
+      <nav style={{ borderBottom: '1px solid var(--border)', padding: '1rem', background: 'var(--card)' }}>
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <button
               onClick={() => setCurrentPage('analyze')}
@@ -89,18 +111,6 @@ function App() {
               Usage
             </button>
           </div>
-
-          {usage && (
-            <div style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: usage.deepCalls >= usage.budget ? '#dc2626' : '#059669',
-              borderRadius: '0.25rem',
-              fontSize: '0.875rem',
-              fontWeight: '500'
-            }}>
-              Deep: {usage.deepCalls} / {usage.budget}
-            </div>
-          )}
         </div>
       </nav>
 

@@ -402,11 +402,26 @@ Also include an "explain" object with reasoning:
   }
 }` : '';
 
+        // Extract training context from settings
+        const trainingContext = settings?.trainingContext || {};
+        const brandGuidelines = trainingContext.brandGuidelines || '';
+        const buyerNotes = trainingContext.buyerNotes || '';
+        const regionNotes = trainingContext.regionNotes || '';
+
+        const contextualGuidance = [
+            brandGuidelines && `BRAND CONTEXT: ${brandGuidelines}`,
+            buyerNotes && `BUYER PREFERENCES: ${buyerNotes}`,
+            regionNotes && `REGIONAL CONSIDERATIONS: ${regionNotes}`
+        ].filter(Boolean).join('\n\n');
+
         const sys = `
 You are a retail trend assistant for footwear/apparel. Return concise KPIs (0–100) for:
 - demand, momentum, saturation, freshness, styleFit
 If CSV rows are provided, use them as context (velocity, sell-through, collections, categories, colors).
 If NO rows are provided, infer from general retail knowledge and typical market dynamics for the query (brand, collection, category, color family).
+
+${contextualGuidance ? `IMPORTANT CONTEXT:\n${contextualGuidance}\n\nConsider this context when making recommendations and adjust scores accordingly.\n` : ''}
+
 ALWAYS return a single JSON object:
 {
   "summary": "one or two sentences about outlook",

@@ -19,6 +19,11 @@ export type Settings = {
     weights: Weights;
     scenario: Scenario;
     defaultMode: 'quick' | 'deep';
+    trainingContext: {
+        brandGuidelines: string;
+        buyerNotes: string;
+        regionNotes: string;
+    };
 };
 
 export type BuyerPresetKey = 'footwear' | 'apparel' | 'regional_us' | 'regional_eu';
@@ -58,6 +63,11 @@ const DEFAULTS: Settings = {
     weights: { demand: 0.35, momentum: 0.25, saturation: 0.15, freshness: 0.15, styleFit: 0.10 },
     scenario: { marketingPush: 0.5, collabFrequency: 0.5, priceSensitivity: 0.5, macroSentiment: 0.5 },
     defaultMode: 'deep',
+    trainingContext: {
+        brandGuidelines: '',
+        buyerNotes: '',
+        regionNotes: ''
+    },
 };
 
 // Load persisted settings or use defaults
@@ -100,6 +110,16 @@ export function applyPreset(key: BuyerPresetKey) {
     if (!p) return;
     _settings.weights = { ...p.weights };
     _settings.thresholds = { ...p.thresholds };
+    _version++;
+    // Persist to localStorage
+    try {
+        localStorage.setItem('aba_settings', JSON.stringify(_settings));
+    } catch { }
+    subs.forEach(fn => fn(_settings));
+}
+
+export function resetToDefaults() {
+    _settings = { ...DEFAULTS };
     _version++;
     // Persist to localStorage
     try {
