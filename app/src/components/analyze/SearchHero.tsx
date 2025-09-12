@@ -49,15 +49,12 @@ const SearchHero: React.FC<SearchHeroProps> = ({
     };
 
     return (
-        <div style={{
-            backgroundColor: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: '16px',
-            padding: '2rem',
-            marginBottom: '2rem'
+        <div className="card" style={{
+            padding: 'var(--space-6)',
+            marginBottom: 'var(--space-6)'
         }}>
             {/* Search Input */}
-            <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ marginBottom: 'var(--space-5)' }}>
                 <textarea
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -67,9 +64,9 @@ const SearchHero: React.FC<SearchHeroProps> = ({
                     disabled={isLoading || disabled}
                     style={{
                         width: '100%',
-                        padding: '1rem',
+                        padding: 'var(--space-4)',
                         fontSize: '1.125rem',
-                        borderRadius: '12px',
+                        borderRadius: 'var(--radius-lg)',
                         border: '2px solid var(--border)',
                         backgroundColor: 'var(--bg)',
                         color: 'var(--text)',
@@ -87,21 +84,21 @@ const SearchHero: React.FC<SearchHeroProps> = ({
             {/* Controls Row */}
             <div style={{
                 display: 'flex',
-                gap: '1rem',
+                gap: 'var(--space-4)',
                 alignItems: 'center',
                 flexWrap: 'wrap'
             }}>
                 {/* Action Buttons */}
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
                     <button
                         onClick={handleRunQuick}
                         disabled={!query.trim() || isLoading || disabled}
                         style={{
-                            padding: '0.75rem 1.5rem',
+                            padding: 'var(--space-3) var(--space-6)',
                             backgroundColor: (!query.trim() || isLoading || disabled) ? 'var(--muted)' : 'var(--border)',
                             color: (!query.trim() || isLoading || disabled) ? 'var(--bg)' : 'var(--text)',
                             border: '1px solid var(--border)',
-                            borderRadius: '8px',
+                            borderRadius: 'var(--radius-md)',
                             cursor: (!query.trim() || isLoading || disabled) ? 'not-allowed' : 'pointer',
                             fontSize: '0.875rem',
                             fontWeight: '600',
@@ -127,11 +124,11 @@ const SearchHero: React.FC<SearchHeroProps> = ({
                         onClick={handleRunDeep}
                         disabled={!query.trim() || isLoading || disabled}
                         style={{
-                            padding: '0.75rem 1.5rem',
+                            padding: 'var(--space-3) var(--space-6)',
                             backgroundColor: (!query.trim() || isLoading || disabled) ? 'var(--muted)' : 'var(--accent)',
                             color: 'white',
                             border: 'none',
-                            borderRadius: '8px',
+                            borderRadius: 'var(--radius-md)',
                             cursor: (!query.trim() || isLoading || disabled) ? 'not-allowed' : 'pointer',
                             fontSize: '0.875rem',
                             fontWeight: '600',
@@ -153,8 +150,8 @@ const SearchHero: React.FC<SearchHeroProps> = ({
                 </div>
 
                 {/* Dropdowns */}
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                         <label style={{
                             fontSize: '0.875rem',
                             fontWeight: '500',
@@ -167,8 +164,8 @@ const SearchHero: React.FC<SearchHeroProps> = ({
                             onChange={(e) => setReasoningLevel(e.target.value)}
                             disabled={isLoading || disabled}
                             style={{
-                                padding: '0.5rem',
-                                borderRadius: '6px',
+                                padding: 'var(--space-2)',
+                                borderRadius: 'var(--radius-sm)',
                                 border: '1px solid var(--border)',
                                 backgroundColor: 'var(--card)',
                                 color: 'var(--text)',
@@ -184,7 +181,7 @@ const SearchHero: React.FC<SearchHeroProps> = ({
                         </select>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                         <label style={{
                             fontSize: '0.875rem',
                             fontWeight: '500',
@@ -197,8 +194,8 @@ const SearchHero: React.FC<SearchHeroProps> = ({
                             onChange={(e) => setRegion(e.target.value)}
                             disabled={isLoading || disabled}
                             style={{
-                                padding: '0.5rem',
-                                borderRadius: '6px',
+                                padding: 'var(--space-2)',
+                                borderRadius: 'var(--radius-sm)',
                                 border: '1px solid var(--border)',
                                 backgroundColor: 'var(--card)',
                                 color: 'var(--text)',

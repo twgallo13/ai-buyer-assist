@@ -3,56 +3,35 @@ import React from 'react';
 interface DashboardShellProps {
     children: React.ReactNode;
     rightRail?: React.ReactNode;
+    stickyRail?: boolean;
 }
 
-const DashboardShell: React.FC<DashboardShellProps> = ({ children, rightRail }) => {
+/**
+ * DashboardShell - Main layout component for dashboard pages
+ * 
+ * Provides a responsive 12-column grid with main content and optional right rail
+ * that stacks on smaller screens.
+ */
+const DashboardShell: React.FC<DashboardShellProps> = ({
+    children,
+    rightRail,
+    stickyRail = false
+}) => {
     return (
-        <div style={{
-            display: 'flex',
-            minHeight: '100vh',
-            backgroundColor: 'var(--bg)',
-            color: 'var(--text)'
-        }}>
-            {/* Main Content Area */}
-            <main style={{
-                flex: 1,
-                minWidth: 0, // Allows flex item to shrink below its content size
-                padding: '2rem',
-                maxWidth: rightRail ? 'calc(100% - 360px)' : '100%'
-            }}>
-                {children}
-            </main>
+        <div className="container">
+            <div className="grid-12">
+                {/* Main Content Area */}
+                <main className="col-main">
+                    {children}
+                </main>
 
-            {/* Right Rail */}
-            {rightRail && (
-                <aside style={{
-                    width: '360px',
-                    flexShrink: 0,
-                    backgroundColor: 'var(--card)',
-                    borderLeft: '1px solid var(--border)',
-                    padding: '2rem',
-                    overflowY: 'auto'
-                }}>
-                    {rightRail}
-                </aside>
-            )}
-
-            {/* Responsive: Stack on small screens */}
-            <style>{`
-                @media (max-width: 768px) {
-                    div[style*="display: flex"] {
-                        flex-direction: column;
-                    }
-                    main[style*="maxWidth"] {
-                        max-width: 100% !important;
-                    }
-                    aside[style*="width: 360px"] {
-                        width: 100% !important;
-                        border-left: none !important;
-                        border-top: 1px solid var(--border) !important;
-                    }
-                }
-            `}</style>
+                {/* Right Rail */}
+                {rightRail && (
+                    <aside className={`col-rail ${stickyRail ? 'sticky-top' : ''}`}>
+                        {rightRail}
+                    </aside>
+                )}
+            </div>
         </div>
     );
 };

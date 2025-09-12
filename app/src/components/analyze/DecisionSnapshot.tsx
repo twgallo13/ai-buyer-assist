@@ -53,7 +53,7 @@ const DecisionSnapshot: React.FC<DecisionSnapshotProps> = ({
                             cursor: 'pointer',
                             fontSize: '1.25rem',
                             padding: '0.25rem',
-                            borderRadius: '4px'
+                            borderRadius: 'var(--radius-sm)'
                         }}
                         onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#fecaca'}
                         onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -68,19 +68,16 @@ const DecisionSnapshot: React.FC<DecisionSnapshotProps> = ({
     // Show loading state
     if (isLoading) {
         return (
-            <div style={{
-                backgroundColor: 'var(--card)',
-                border: '1px solid var(--border)',
-                borderRadius: '16px',
-                padding: '2rem',
-                marginBottom: '2rem',
+            <div className="card" style={{
+                padding: 'var(--space-6)',
+                marginBottom: 'var(--space-6)',
                 textAlign: 'center'
             }}>
                 <div style={{
                     fontSize: '1.125rem',
                     fontWeight: '600',
                     color: 'var(--text)',
-                    marginBottom: '0.5rem'
+                    marginBottom: 'var(--space-2)'
                 }}>
                     Analyzing...
                 </div>
@@ -91,7 +88,7 @@ const DecisionSnapshot: React.FC<DecisionSnapshotProps> = ({
                     Running AI analysis on your query
                 </div>
                 <div style={{
-                    marginTop: '1rem',
+                    marginTop: 'var(--space-4)',
                     height: '4px',
                     backgroundColor: 'var(--border)',
                     borderRadius: '2px',
@@ -254,13 +251,13 @@ const DecisionSnapshot: React.FC<DecisionSnapshotProps> = ({
             {/* Indices */}
             {result.indices && (
                 <div style={{
-                    marginBottom: '1.5rem'
+                    marginBottom: 'var(--space-6)'
                 }}>
                     <div style={{
                         fontSize: '0.875rem',
                         fontWeight: '600',
                         color: 'var(--muted)',
-                        marginBottom: '1rem',
+                        marginBottom: 'var(--space-4)',
                         textTransform: 'uppercase',
                         letterSpacing: '0.5px'
                     }}>
@@ -269,7 +266,7 @@ const DecisionSnapshot: React.FC<DecisionSnapshotProps> = ({
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                        gap: '1rem'
+                        gap: 'var(--space-4)'
                     }}>
                         {[
                             { key: 'demand', label: 'Demand', color: '#059669' },
@@ -282,16 +279,16 @@ const DecisionSnapshot: React.FC<DecisionSnapshotProps> = ({
                             return (
                                 <div key={key} style={{
                                     textAlign: 'center',
-                                    padding: '1rem',
+                                    padding: 'var(--space-4)',
                                     backgroundColor: 'var(--bg)',
-                                    borderRadius: '8px',
+                                    borderRadius: 'var(--radius-md)',
                                     border: '1px solid var(--border)'
                                 }}>
                                     <div style={{
                                         fontSize: '1.5rem',
                                         fontWeight: '700',
                                         color: color,
-                                        marginBottom: '0.25rem'
+                                        marginBottom: 'var(--space-1)'
                                     }}>
                                         {value}
                                     </div>
@@ -313,12 +310,14 @@ const DecisionSnapshot: React.FC<DecisionSnapshotProps> = ({
 
             {/* Badge Chips */}
             {result.sources && result.sources.length > 0 && (
-                <div>
+                <div style={{
+                    marginBottom: 'var(--space-6)'
+                }}>
                     <div style={{
                         fontSize: '0.875rem',
                         fontWeight: '600',
                         color: 'var(--muted)',
-                        marginBottom: '0.75rem',
+                        marginBottom: 'var(--space-3)',
                         textTransform: 'uppercase',
                         letterSpacing: '0.5px'
                     }}>
@@ -327,14 +326,14 @@ const DecisionSnapshot: React.FC<DecisionSnapshotProps> = ({
                     <div style={{
                         display: 'flex',
                         flexWrap: 'wrap',
-                        gap: '0.5rem'
+                        gap: 'var(--space-2)'
                     }}>
                         {result.sources.map((source, index) => (
                             <span key={index} style={{
                                 backgroundColor: 'var(--accent)',
                                 color: 'white',
-                                padding: '0.25rem 0.75rem',
-                                borderRadius: '12px',
+                                padding: 'var(--space-1) var(--space-3)',
+                                borderRadius: 'var(--radius-pill)',
                                 fontSize: '0.75rem',
                                 fontWeight: '500'
                             }}>
@@ -345,8 +344,8 @@ const DecisionSnapshot: React.FC<DecisionSnapshotProps> = ({
                         <span style={{
                             backgroundColor: '#059669',
                             color: 'white',
-                            padding: '0.25rem 0.75rem',
-                            borderRadius: '12px',
+                            padding: 'var(--space-1) var(--space-3)',
+                            borderRadius: 'var(--radius-pill)',
                             fontSize: '0.75rem',
                             fontWeight: '500'
                         }}>
@@ -355,8 +354,8 @@ const DecisionSnapshot: React.FC<DecisionSnapshotProps> = ({
                         <span style={{
                             backgroundColor: '#7c3aed',
                             color: 'white',
-                            padding: '0.25rem 0.75rem',
-                            borderRadius: '12px',
+                            padding: 'var(--space-1) var(--space-3)',
+                            borderRadius: 'var(--radius-pill)',
                             fontSize: '0.75rem',
                             fontWeight: '500'
                         }}>
@@ -365,8 +364,8 @@ const DecisionSnapshot: React.FC<DecisionSnapshotProps> = ({
                         <span style={{
                             backgroundColor: '#ea580c',
                             color: 'white',
-                            padding: '0.25rem 0.75rem',
-                            borderRadius: '12px',
+                            padding: 'var(--space-1) var(--space-3)',
+                            borderRadius: 'var(--radius-pill)',
                             fontSize: '0.75rem',
                             fontWeight: '500'
                         }}>

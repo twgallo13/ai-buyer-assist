@@ -4,6 +4,8 @@ import { saveSession } from '../lib/sessions';
 import DashboardShell from '../components/layout/DashboardShell';
 import SearchHero from '../components/analyze/SearchHero';
 import DecisionSnapshot from '../components/analyze/DecisionSnapshot';
+import ExplainCard from '../components/analyze/ExplainCard';
+import SourcesList from '../components/analyze/SourcesList';
 import {
     INTENT_OPTIONS,
     HORIZON_OPTIONS
@@ -351,6 +353,16 @@ const Analyze: React.FC = () => {
                 errorMessage={errorMessage}
                 onDismissError={() => setErrorMessage(null)}
             />
+
+            {/* Explain Card - Why this verdict? */}
+            {result && !isLoading && (
+                <ExplainCard result={result} />
+            )}
+
+            {/* Sources & Citations */}
+            {result && !isLoading && (
+                <SourcesList result={result} />
+            )}
 
             {/* Status Banners */}
             {result && (
