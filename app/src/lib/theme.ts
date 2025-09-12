@@ -1,29 +1,4 @@
-export type ThemeMode = 'light' | 'dark' | 'system';
-
-const THEME_KEY = 'theme';
-
-/**
- * Get the stored theme from localStorage or default to 'light'
- */
-export function getStoredTheme(): ThemeMode {
-    try {
-        const v = localStorage.getItem(THEME_KEY) as ThemeMode | null;
-        return v ?? 'light'; // Default to light theme
-    } catch (e) {
-        return 'light';
-    }
-}
-
-/**
- * Store the theme preference in localStorage
- */
-export function setStoredTheme(mode: ThemeMode) {
-    try {
-        localStorage.setItem(THEME_KEY, mode);
-    } catch (e) {
-        console.warn('Could not store theme preference', e);
-    }
-}
+export type Theme = 'light' | 'dark' | 'system';
 
 /**
  * Get system theme preference using media query
@@ -35,22 +10,22 @@ export function getSystemTheme(): 'light' | 'dark' {
 /**
  * Apply the theme to the document root
  */
-export function applyTheme(mode: ThemeMode) {
+export function applyTheme(theme: Theme): void {
     const root = document.documentElement;
-    const actualTheme = mode === 'system' ? getSystemTheme() : mode;
-    root.setAttribute('data-theme', actualTheme);
+    const actualTheme = theme === 'system' ? getSystemTheme() : theme;
+    root.dataset.theme = actualTheme;
 }
 
 /**
- * Initialize theme on page load
+ * Initialize theme on page load and setup system theme listener
  */
-export function initTheme() {
-    const mode = getStoredTheme();
-    applyTheme(mode);
+export function initTheme(theme: Theme): void {
+    applyTheme(theme);
 
     // Listen for system theme changes if using system preference
-    if (mode === 'system') {
+    if (theme === 'system') {
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        mediaQuery.addEventListener('change', () => applyTheme('system'));
+        const handleChange = () => applyTheme('system');
+        mediaQuery.addEventListener('change', handleChange);
     }
 }

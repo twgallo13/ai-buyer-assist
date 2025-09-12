@@ -7,7 +7,7 @@ import SettingsPage from './pages/Settings'
 import SessionsPage from './pages/Sessions'
 import UsagePage from './pages/Usage'
 import ThemeToggle from './components/ThemeToggle'
-import { initTheme } from './lib/theme'
+
 import './styles/theme.css'
 
 function App() {
@@ -15,14 +15,11 @@ function App() {
   const [usage, setUsage] = useState<{ deepCalls: number, budget: number } | null>(null);
 
   useEffect(() => {
-    // Initialize theme
-    initTheme();
-
-    // Sync settings theme with theme library on startup
+    // Initialize theme from settings
     import('./lib/settings').then(({ getSettings }) => {
       const { theme } = getSettings();
-      import('./lib/theme').then(({ applyTheme }) => {
-        applyTheme(theme);
+      import('./lib/theme').then(({ initTheme }) => {
+        initTheme(theme);
       });
     });
 

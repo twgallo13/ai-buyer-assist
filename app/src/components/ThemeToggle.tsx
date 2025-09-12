@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { applyTheme, getStoredTheme, setStoredTheme } from '../lib/theme';
-import type { ThemeMode } from '../lib/theme';
+import { applyTheme } from '../lib/theme';
+import { getSettings, updateSettings } from '../lib/settings';
+import type { Theme } from '../lib/theme';
 
 export default function ThemeToggle() {
-    const [mode, setMode] = useState<ThemeMode>(getStoredTheme());
+    const [mode, setMode] = useState<Theme>(getSettings().theme);
 
-    const handleThemeChange = (newMode: ThemeMode) => {
+    const handleThemeChange = (newMode: Theme) => {
         setMode(newMode);
         applyTheme(newMode);
-        setStoredTheme(newMode);
+        updateSettings({ theme: newMode });
     };
 
     useEffect(() => {
@@ -30,7 +31,7 @@ export default function ThemeToggle() {
             </label>
             <select
                 value={mode}
-                onChange={(e) => handleThemeChange(e.target.value as ThemeMode)}
+                onChange={(e) => handleThemeChange(e.target.value as Theme)}
                 aria-label="Theme mode"
                 style={{
                     padding: 'var(--space-1) var(--space-3)',

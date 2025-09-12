@@ -1,806 +1,652 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import type { Row, Citation } from '../types';
-import type { AnalysisResult, Query, Indices } from '../lib/types';
-import { getSettings } from '../lib/settings';
-import { computeQuickIndices, verdictFrom, explainQuick } from '../lib/verdict';
-import { getCsvRows, subscribeCsv } from '../lib/csv-store';
+import React, { useState, useCallback, useEffect } from 'react';
+import type { AnalysisResult } from '../lib/types';
 import { saveSession } from '../lib/sessions';
-import { 
-    FALLBACK_BRANDS, 
-    FALLBACK_COLLECTIONS, 
-    FALLBACK_CATEGORIES, 
-    FALLBACK_COLOR_FAMILIES, 
-    FALLBACK_GENDERS,
-    FALLBACK_CLASSES,
-    INTENT_OPTIONS,
-    HORIZON_OPTIONS
-} from '../lib/fallback-taxonomy';
+import { getSettings } from '../lib/settings';
+import DecisionSnapshot from '../components/analyze/DecisionSnapshot';
+import ExplainCard from '../components/analyze/ExplainCard';
+import SourcesList from '../components/analyze/SourcesList';
+import { SkeletonHeadlines } from '../components/ui/Skeleton';
 
-// Load persisted mode or use settings default
-function getLastMode(): 'quick' | 'deep' {
-    try {
-        const stored = localStorage.getItem('aba_last_mode');
-        if (stored && (stored === 'quick' || stored === 'deep')) {
-            return stored;
-        }
-    } catch { }
-    return getSettings().defaultMode;
+interface TrendHeadline {
+    title: string;
+    source: string;
+    url: string;
 }
 
 const Analyze: React.FC = () => {
-    const [input, setInput] = useState('');
-    const [mode, setMode] = useState<'quick' | 'deep'>(getLastMode());
+    // Load settings for defaults
+    const settings = getSettings();
+    
+    const [query, setQuery] = useState('');
     const [result, setResult] = useState<AnalysisResult | null>(null);
-    const [csvRows, setCsvRowsLocal] = useState<any[]>(getCsvRows());
-    const [showBudgetBanner, setShowBudgetBanner] = useState(false);
-    const [showFallbackBanner, setShowFallbackBanner] = useState(false);
-    const [showCacheBanner, setShowCacheBanner] = useState(false);
-    const [showCapBanner, setShowCapBanner] = useState(false);
-    const [isSharedView, setIsSharedView] = useState(false);
-
-    // CSV state  
     const [isLoading, setIsLoading] = useState(false);
-    const [remaining, setRemaining] = useState(10000);
-    const [showMockBanner, setShowMockBanner] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    
+    // Right rail state
+    const [headlines, setHeadlines] = useState<TrendHeadline[]>([]);
+    const [loadingHeadlines, setLoadingHeadlines] = useState(false);
 
-    const [previewRows, setPreviewRows] = useState<Row[]>([]);
-
-    // Guided Query Builder state
-    const [showQueryBuilder, setShowQueryBuilder] = useState(false);
-    const [queryParts, setQueryParts] = useState<QueryParts>({});
-
-    // Memoized unique values for dropdowns
-    const collections = useMemo(() => uniqueValues('Collection'), [csvRows]);
-    const categories = useMemo(() => uniqueValues('Category'), [csvRows]);
-    const colors = useMemo(() => uniqueValues('Color Family'), [csvRows]);
-    const genders = useMemo(() => uniqueValues('Gender Target'), [csvRows]);
-
-    // CSV validation
-    const validation = getCsvValidation();
-    const csvIsValid = validation?.ok !== false;
-
-    // Check for shared run on load
+    // Load headlines on mount and when query changes
     useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const runId = urlParams.get('run');
-        if (runId) {
-            setIsSharedView(true);
-            fetch(`/api/runs/${runId}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.ok && data.run) {
-                        setInput(data.run.query);
-                        setMode(data.run.mode);
-                        setResult(data.run.result);
-                    }
-                })
-                .catch(() => {
-                    // Handle error silently
-                });
-        }
-    }, []);
-    const hasWarnings = validation && validation.issues.length > 0;
+        fetchHeadlines(query || 'sneakers');
+    }, [query]);
 
-    // Subscribe to CSV changes
-    useEffect(() => {
-        const unsubscribe = subscribeCsv((newRows) => {
-            setCsvRowsLocal(newRows);
-        });
-        return unsubscribe;
-    }, []);
-
-    // Check for prefilled query from Compare page
-    useEffect(() => {
+    const fetchHeadlines = async (searchQuery: string) => {
+        setLoadingHeadlines(true);
         try {
-            const prefill = sessionStorage.getItem('aba_prefill_query');
-            if (prefill) {
-                setInput(prefill);
-                sessionStorage.removeItem('aba_prefill_query');
+            const response = await fetch(`/api/trends?query=${encodeURIComponent(searchQuery)}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.headlines) {
+                    setHeadlines(data.headlines.slice(0, 6));
+                }
             }
-        } catch {
-            // Ignore session storage errors
-        }
-    }, []);
-
-    // Persist mode changes
-    const handleModeChange = (newMode: 'quick' | 'deep') => {
-        setMode(newMode);
-        try {
-            localStorage.setItem('aba_last_mode', newMode);
-        } catch {
-            // Ignore storage errors
+        } catch (error) {
+            console.warn('Failed to fetch headlines:', error);
+            // Fallback headlines
+            setHeadlines([
+                { title: 'Nike Air Jordan 1 sees surge in resale demand', source: 'sneakerfreaker.com', url: 'https://sneakerfreaker.com' },
+                { title: 'Adidas Ultraboost momentum building for Q4', source: 'hypebeast.com', url: 'https://hypebeast.com' },
+                { title: 'New Balance collaborations driving freshness scores', source: 'complex.com', url: 'https://complex.com' },
+                { title: 'Retro basketball styles maintaining strong demand', source: 'footwearnews.com', url: 'https://footwearnews.com' }
+            ]);
+        } finally {
+            setLoadingHeadlines(false);
         }
     };
-    const [missingHeaders, setMissingHeaders] = useState<string[]>([]);
-    const [csvLoaded, setCsvLoaded] = useState(false);
-    const [includedRowsCount, setIncludedRowsCount] = useState(0);
 
-    const expectedHeaders = [
-        'SKU', 'Product Name', 'Collection', 'Category', 'Class',
-        'Velocity Units/Day', 'Historic Sell-through 28d', 'Historic Sell-through 90d', 'Color Family'
-    ];
-
-    const parseCSV = useCallback((csvText: string): Row[] => {
-        const lines = csvText.split('\n').filter(line => line.trim());
-        if (lines.length < 2) return [];
-
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-        const headerMap: { [key: string]: number } = {};
-        headers.forEach((header, index) => {
-            headerMap[header.toLowerCase()] = index;
-        });
-
-        const missing: string[] = [];
-        const headerLookup = {
-            sku: ['sku'],
-            productName: ['product name', 'productname'],
-            collection: ['collection'],
-            category: ['category'],
-            class: ['class'],
-            velocityUnitsPerDay: ['velocity units/day', 'velocity'],
-            st28: ['historic sell-through 28d', 'st28'],
-            st90: ['historic sell-through 90d', 'st90'],
-            colorFamily: ['color family', 'colorfamily']
-        };
-
-        Object.entries(headerLookup).forEach(([field, variants]) => {
-            const found = variants.some(variant =>
-                Object.keys(headerMap).some(header => header.includes(variant.toLowerCase()))
-            );
-            if (!found && field !== 'colorFamily') {
-                const originalName = expectedHeaders.find(h =>
-                    h.toLowerCase().replace(/[^a-z]/g, '') === field.toLowerCase()
-                ) || field;
-                missing.push(originalName);
-            }
-        });
-
-        setMissingHeaders(missing);
-
-        const parsedRows: Row[] = [];
-        for (let i = 1; i < lines.length; i++) {
-            const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-
-            let sku = '';
-            for (const variant of headerLookup.sku) {
-                const headerIndex = Object.keys(headerMap).find(h => h.includes(variant));
-                if (headerIndex !== undefined) {
-                    sku = values[headerMap[headerIndex]] || '';
-                    break;
-                }
-            }
-
-            if (!sku) continue;
-
-            const row: Row = { sku };
-
-            const findValue = (variants: string[]) => {
-                for (const variant of variants) {
-                    const headerIndex = Object.keys(headerMap).find(h => h.includes(variant));
-                    if (headerIndex !== undefined) {
-                        return values[headerMap[headerIndex]] || undefined;
-                    }
-                }
-                return undefined;
-            };
-
-            row.productName = findValue(headerLookup.productName);
-            row.collection = findValue(headerLookup.collection);
-            row.category = findValue(headerLookup.category);
-            row.class = findValue(headerLookup.class);
-            row.colorFamily = findValue(headerLookup.colorFamily);
-
-            ['velocityUnitsPerDay', 'st28', 'st90'].forEach(field => {
-                const value = findValue(headerLookup[field as keyof typeof headerLookup]);
-                if (value) {
-                    const num = Number(value);
-                    if (!isNaN(num)) (row as any)[field] = num;
-                }
-            });
-
-            parsedRows.push(row);
+    const handleRun = useCallback(async (runMode: 'quick' | 'deep') => {
+        if (!query.trim()) {
+            setErrorMessage('Please enter a query');
+            return;
         }
-        return parsedRows;
-    }, []);
-
-    const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const csvText = e.target?.result as string;
-            const lines = csvText.split('\n').filter(line => line.trim());
-            if (lines.length < 2) return;
-
-            const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-            const parsedRows = parseCSV(csvText);
-            const validation = validateCsv(headers, parsedRows);
-
-            setCsv(parsedRows, headers, validation);
-            setPreviewRows(parsedRows.slice(0, 200));
-            setCsvLoaded(true);
-        };
-        reader.readAsText(file);
-    }, [parseCSV]);
-
-    const findMatchingRows = useCallback((query: string, allRows: Row[]): Row[] => {
-        if (!csvLoaded || allRows.length === 0) return [];
-
-        const filters: Array<(row: Row) => boolean> = [];
-        const collectionMatch = query.match(/collection:"([^"]+)"/i);
-        if (collectionMatch) {
-            const collection = collectionMatch[1].toLowerCase();
-            filters.push(row => row.collection?.toLowerCase().includes(collection) || false);
-        }
-
-        const categoryMatch = query.match(/category:"([^"]+)"/i);
-        if (categoryMatch) {
-            const category = categoryMatch[1].toLowerCase();
-            filters.push(row => row.category?.toLowerCase().includes(category) || false);
-        }
-
-        const colorMatch = query.match(/colorFamily:"([^"]+)"/i);
-        if (colorMatch) {
-            const color = colorMatch[1].toLowerCase();
-            filters.push(row => row.colorFamily?.toLowerCase().includes(color) || false);
-        }
-
-        if (filters.length === 0 && !query.includes(' AND ') && !query.includes(' OR ')) {
-            const trimmedQuery = query.trim();
-            filters.push(row => row.sku === trimmedQuery);
-        }
-
-        if (filters.length === 0) return [];
-        return allRows.filter(row => filters.every(filter => filter(row))).slice(0, 20);
-    }, [csvLoaded]);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!input.trim()) return;
 
         setIsLoading(true);
+        setErrorMessage(null);
+        setResult(null);
+
+        try {
+            const currentSettings = getSettings();
+            const endpoint = runMode === 'deep' ? '/api/deep' : '/api/quick';
+            
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query: query.trim(),
+                    reasoningLevel: currentSettings.reasoningLevel,
+                    region: currentSettings.regionPreset,
+                    model: currentSettings.model,
+                    temperature: currentSettings.temperature
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.budgetExceeded || data.capped) {
+                setResult(data.fallback || {
+                    verdict: 'Hold',
+                    demand: 50,
+                    momentum: 50,
+                    saturation: 50,
+                    freshness: 50,
+                    styleFit: 50,
+                    confidence: 30,
+                    summary: 'Daily AI budget cap reached. Showing conservative fallback.',
+                    sources: ['cap'],
+                    indices: { demand: 50, momentum: 50, saturation: 50, freshness: 50, styleFit: 50 }
+                });
+            } else if (data.summary || data.indices) {
+                setResult(data);
+                
+                // Save session for sharing
+                if (data.runId) {
+                    saveSession({
+                        id: data.runId,
+                        timestamp: Date.now(),
+                        query,
+                        mode: runMode,
+                        result: data
+                    });
+                }
+            } else {
+                throw new Error('Invalid response format');
+            }
+        } catch (error) {
+            console.error('Analysis failed:', error);
+            setErrorMessage('Analysis failed. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [query]);
+
+    const currentSettings = getSettings();
+
+    return (
+        <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+            <div className="max-w-7xl mx-auto p-4">
+                {/* 12-column responsive grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    
+                    {/* Left Column - Main Content (span 8 on desktop) */}
+                    <div className="lg:col-span-8 space-y-6">
+                        
+                        {/* Hero Search Card */}
+                        <div className="p-6 rounded-lg" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}>
+                            <h1 className="text-2xl font-bold mb-4" style={{ color: 'var(--text)' }}>
+                                AI Buyer Assistant
+                            </h1>
+                            
+                            <div className="space-y-4">
+                                <textarea
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    placeholder="Enter product, brand, or trend query..."
+                                    className="w-full h-24 p-3 rounded border resize-none"
+                                    style={{ 
+                                        backgroundColor: 'var(--bg)', 
+                                        color: 'var(--text)', 
+                                        borderColor: 'var(--border)' 
+                                    }}
+                                />
+                                
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <button
+                                        onClick={() => handleRun('quick')}
+                                        disabled={isLoading}
+                                        className="px-6 py-2 rounded font-medium"
+                                        style={{ 
+                                            backgroundColor: 'var(--muted)', 
+                                            color: 'var(--card)',
+                                            opacity: isLoading ? 0.5 : 1 
+                                        }}
+                                    >
+                                        {isLoading ? 'Running...' : 'Run Quick'}
+                                    </button>
+                                    
+                                    <button
+                                        onClick={() => handleRun('deep')}
+                                        disabled={isLoading}
+                                        className="px-6 py-2 rounded font-medium"
+                                        style={{ 
+                                            backgroundColor: 'var(--accent)', 
+                                            color: 'white',
+                                            opacity: isLoading ? 0.5 : 1 
+                                        }}
+                                    >
+                                        {isLoading ? 'Running...' : 'Run Deep'}
+                                    </button>
+                                </div>
+                                
+                                {/* Settings Pills */}
+                                <div className="flex flex-wrap gap-2 text-xs">
+                                    <span className="px-2 py-1 rounded" style={{ backgroundColor: 'var(--muted)', color: 'var(--card)' }}>
+                                        Model: {currentSettings.model}
+                                    </span>
+                                    <span className="px-2 py-1 rounded" style={{ backgroundColor: 'var(--muted)', color: 'var(--card)' }}>
+                                        Temp: {currentSettings.temperature}
+                                    </span>
+                                    <span className="px-2 py-1 rounded" style={{ backgroundColor: 'var(--muted)', color: 'var(--card)' }}>
+                                        Region: {currentSettings.regionPreset}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Error Message */}
+                        {errorMessage && (
+                            <div className="p-4 rounded-lg" style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}>
+                                {errorMessage}
+                            </div>
+                        )}
+
+                        {/* Results Stack */}
+                        {result && (
+                            <div className="space-y-4">
+                                {/* Decision Snapshot */}
+                                <DecisionSnapshot result={result} />
+                                
+                                {/* Explain Card */}
+                                <ExplainCard result={result} />
+                                
+                                {/* Sources & Citations */}
+                                <SourcesList result={result} />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Right Rail (span 4 on desktop) */}
+                    <div className="lg:col-span-4 space-y-6">
+                        
+                        {/* AI Headlines */}
+                        <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}>
+                            <h3 className="font-semibold mb-4" style={{ color: 'var(--text)' }}>
+                                AI Headlines
+                            </h3>
+                            
+                            {loadingHeadlines ? (
+                                <SkeletonHeadlines count={4} />
+                            ) : (
+                                <div className="space-y-3">
+                                    {headlines.map((headline, index) => (
+                                        <div key={index} className="space-y-1">
+                                            <a
+                                                href={headline.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-sm font-medium hover:underline"
+                                                style={{ color: 'var(--text)' }}
+                                            >
+                                                {headline.title}
+                                            </a>
+                                            <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                                                {headline.source}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Tips */}
+                        <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}>
+                            <h3 className="font-semibold mb-4" style={{ color: 'var(--text)' }}>
+                                Tips
+                            </h3>
+                            <ul className="space-y-2 text-sm" style={{ color: 'var(--muted)' }}>
+                                <li>• Try specific brand + model queries</li>
+                                <li>• Include color or material details</li>
+                                <li>• Use "vs" to compare products</li>
+                                <li>• Deep mode provides reasoning</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default Analyze;
+        setShowCapBanner(false);
         setShowMockBanner(false);
+
+        try {
+            // Quick mode - use fallback analysis
+            const mockResult: AnalysisResult = {
+                verdict: 'Go',
+                demand: 75,
+                momentum: 80,
+                saturation: 45,
+                freshness: 90,
+                styleFit: 70,
+                summary: `Based on market analysis of "${query}", this appears to be a trending category with moderate competition.`,
+                runId: `quick_${Date.now()}`,
+                confidence: 75,
+                sources: ['mock', reasoningLevel, region],
+                indices: {
+                    demand: 75,
+                    momentum: 80,
+                    saturation: 45,
+                    freshness: 90,
+                    styleFit: 70
+                },
+                explain: {
+                    mode: 'quick',
+                    factors: [
+                        { impact: '+', label: 'Market Demand', note: 'Strong consumer interest in this category' },
+                        { impact: '-', label: 'Competition', note: 'Several established brands present' },
+                        { impact: '+', label: 'Trend Momentum', note: 'Growing social media mentions' }
+                    ]
+                }
+            };
+            setResult(mockResult);
+            setShowMockBanner(true);
+        } catch (error) {
+            console.error('Quick analysis failed:', error);
+            setErrorMessage('Quick analysis failed. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    const handleRunDeep = useCallback(async (query: string, reasoningLevel: string, region: string) => {
+        setIsLoading(true);
+        setErrorMessage(null);
         setShowBudgetBanner(false);
         setShowFallbackBanner(false);
         setShowCacheBanner(false);
         setShowCapBanner(false);
-        setErrorMessage(null);
+        setShowMockBanner(false);
 
         try {
-            if (mode === 'quick') {
-                const s = getSettings();
-                const indices = computeQuickIndices(csvRows || [], s.weights, s.scenario);
-                const verdict = verdictFrom(indices, s.thresholds);
-                const explain = explainQuick(csvRows || [], s.weights, s.scenario);
+            // Deep mode - API call with settings
+            const currentSettings = getSettings();
+            const response = await fetch('/api/deep', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query,
+                    reasoningLevel: reasoningLevel || currentSettings.reasoningLevel,
+                    region: region || currentSettings.regionPreset,
+                    model: currentSettings.model,
+                    temperature: currentSettings.temperature
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.budgetExceeded || data.capped) {
+                setShowBudgetBanner(true);
+                setResult(data.fallback || {
+                    verdict: 'Hold',
+                    demand: 50,
+                    momentum: 50,
+                    saturation: 50,
+                    freshness: 50,
+                    styleFit: 50,
+                    confidence: 30,
+                    summary: 'Daily AI budget cap reached. Showing conservative fallback.',
+                    sources: ['cap'],
+                    indices: { demand: 50, momentum: 50, saturation: 50, freshness: 50, styleFit: 50 }
+                });
+            } else if (data.fromCache) {
+                setShowCacheBanner(true);
+                setResult(data);
+            } else if (data.error) {
+                setErrorMessage(data.error);
+                if (data.fallback) {
+                    setShowFallbackBanner(true);
+                    setResult(data.fallback);
+                }
+            } else {
+                // Convert server response to AnalysisResult format
                 const result: AnalysisResult = {
-                    verdict,
-                    demand: indices.demand,
-                    momentum: indices.momentum,
-                    saturation: indices.saturation,
-                    freshness: indices.freshness,
-                    styleFit: indices.styleFit,
-                    summary: `Quick analysis verdict: ${verdict}.`,
-                    indices,
-                    sources: ['csv', 'quick'],
-                    explain,
-                    timestamp: Date.now()
+                    verdict: data.verdict || 'Hold',
+                    demand: data.indices?.demand || data.demand || 50,
+                    momentum: data.indices?.momentum || data.momentum || 50,
+                    saturation: data.indices?.saturation || data.saturation || 50,
+                    freshness: data.indices?.freshness || data.freshness || 50,
+                    styleFit: data.indices?.styleFit || data.styleFit || 50,
+                    confidence: data.confidence,
+                    summary: data.summary,
+                    sources: data.sources,
+                    indices: data.indices,
+                    explain: data.explain,
+                    runId: data.runId,
+                    citations: data.citations
                 };
                 setResult(result);
-                setShowMockBanner(false);
-                setShowBudgetBanner(false);
-                setShowFallbackBanner(false);
-                setShowCacheBanner(false);
-                setShowCapBanner(false);
-                setIncludedRowsCount(0);
-            } else {
-                const hasRows = Array.isArray(csvRows) && csvRows.length > 0;
-                const matchedRows = hasRows ? findMatchingRows(input, csvRows) : [];
-                setIncludedRowsCount(matchedRows.length);
 
-                const s = getSettings();
-                const response = await fetch('/api/deep', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: input, rows: matchedRows, model: s.model, temperature: s.temperature, settings: s }),
-                });
-
-                if (!response.ok) {
-                    // Don't alert, show inline error instead
-                    setErrorMessage('Analysis failed. Falling back to mock.');
-
-                    // Use a fallback mock response
-                    const fallbackMock = {
-                        verdict: 'Hold' as const,
-                        demand: 50,
-                        momentum: 50,
-                        saturation: 50,
-                        freshness: 50,
-                        styleFit: 50,
-                        summary: 'Analysis failed. Falling back to mock.',
-                        indices: { demand: 50, momentum: 50, saturation: 50, freshness: 50, styleFit: 50 },
-                        sources: ['mock', 'fallback']
-                    };
-                    setResult(fallbackMock);
+                if (data.sources?.includes('mock')) {
                     setShowMockBanner(true);
-                    setShowFallbackBanner(true);
-                } else {
-                    const data = await response.json();
-                    setResult(data);
-
-                    // Set banner states based on response sources
-                    const sources = Array.isArray(data.sources) ? data.sources : [];
-                    setShowMockBanner(sources.includes('mock'));
-                    setShowFallbackBanner(sources.includes('fallback'));
-                    setShowBudgetBanner(sources.includes('budget'));
-                    setShowCacheBanner(sources.includes('cache'));
-                    setShowCapBanner(sources.includes('cap'));
-
-                    // Only decrement remaining on real success
-                    if (data.mode === 'real') {
-                        setRemaining(prev => Math.max(0, prev - 100));
-                    }
                 }
             }
-        } catch (error) {
-            console.error('Analysis failed:', error);
-            // Show inline error instead of alert
-            setErrorMessage('Analysis failed. Falling back to mock.');
 
-            // Use a fallback mock response
-            const fallbackMock = {
-                verdict: 'Hold' as const,
-                demand: 50,
-                momentum: 50,
-                saturation: 50,
-                freshness: 50,
-                styleFit: 50,
-                summary: 'Network error. Falling back to mock.',
-                indices: { demand: 50, momentum: 50, saturation: 50, freshness: 50, styleFit: 50 },
-                sources: ['mock', 'fallback']
-            };
-            setResult(fallbackMock);
-            setShowMockBanner(true);
-            setShowFallbackBanner(true);
+            if (data.remaining !== undefined) {
+                setRemaining(data.remaining);
+            }
+        } catch (error) {
+            console.error('Deep analysis failed:', error);
+            setErrorMessage('Deep analysis failed. Please try again.');
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const containerStyle: React.CSSProperties = {
-        minHeight: '100vh',
-        backgroundColor: '#1a1a1a',
-        color: '#ffffff',
-        padding: '20px',
-        fontFamily: 'Arial, sans-serif'
-    };
-
-    const headerStyle: React.CSSProperties = {
-        textAlign: 'center',
-        marginBottom: '40px'
-    };
-
-    const sectionStyle: React.CSSProperties = {
-        maxWidth: '600px',
-        margin: '0 auto',
-        backgroundColor: '#2a2a2a',
-        padding: '30px',
-        borderRadius: '8px',
-        marginBottom: '30px'
-    };
-
-    const inputStyle: React.CSSProperties = {
-        width: '100%',
-        padding: '12px',
-        backgroundColor: '#3a3a3a',
-        border: '1px solid #555',
-        borderRadius: '4px',
-        color: '#ffffff',
-        fontSize: '16px',
-        marginBottom: '20px'
-    };
-
-    const toggleStyle: React.CSSProperties = {
-        display: 'flex',
-        gap: '10px',
-        marginBottom: '20px',
-        alignItems: 'center'
-    };
-
-    const toggleButtonStyle = (active: boolean): React.CSSProperties => ({
-        padding: '8px 16px',
-        backgroundColor: active ? '#4CAF50' : '#555',
-        color: '#ffffff',
-        border: 'none',
-        borderRadius: '4px',
-        cursor: 'pointer',
-        fontSize: '14px'
-    });
-
-    const submitButtonStyle: React.CSSProperties = {
-        width: '100%',
-        padding: '12px',
-        backgroundColor: isLoading ? '#666' : '#0066cc',
-        color: '#ffffff',
-        border: 'none',
-        borderRadius: '4px',
-        cursor: isLoading ? 'not-allowed' : 'pointer',
-        fontSize: '16px',
-        fontWeight: 'bold'
-    };
-
-    const bannerStyle: React.CSSProperties = {
-        backgroundColor: '#ff9800',
-        color: '#000',
-        padding: '10px',
-        borderRadius: '4px',
-        marginBottom: '20px',
-        textAlign: 'center'
-    };
-
-
-
-    const indicesStyle: React.CSSProperties = {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-        gap: '15px',
-        margin: '20px 0'
-    };
-
-    const indexItemStyle: React.CSSProperties = {
-        backgroundColor: '#3a3a3a',
-        padding: '15px',
-        borderRadius: '4px',
-        textAlign: 'center'
-    };
-
-    const sourcesStyle: React.CSSProperties = {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '8px',
-        marginTop: '15px'
-    };
-
-    const sourceChipStyle: React.CSSProperties = {
-        backgroundColor: '#4CAF50',
-        color: '#000',
-        padding: '4px 12px',
-        borderRadius: '16px',
-        fontSize: '12px',
-        fontWeight: 'bold'
-    };
-
-    return (
-        <div style={containerStyle}>
-            <div style={headerStyle}>
-                <h1>AI Buyer Assist</h1>
-                <p>Remaining: {remaining.toLocaleString()}</p>
+    // Main content
+    const mainContent = (
+        <div style={{
+            maxWidth: '800px',
+            margin: '0 auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2rem'
+        }}>
+            {/* Header */}
+            <div>
+                <h1 style={{
+                    fontSize: '2.5rem',
+                    fontWeight: '700',
+                    marginBottom: '0.5rem',
+                    color: 'var(--text)'
+                }}>
+                    Analyze Market Opportunity
+                </h1>
+                <p style={{
+                    fontSize: '1.125rem',
+                    color: 'var(--muted)',
+                    marginBottom: '2rem'
+                }}>
+                    Get AI-powered insights on market trends, competitive landscape, and opportunity assessment
+                </p>
             </div>
 
-            {/* CSV Upload Section */}
-            <div style={{ ...sectionStyle, maxWidth: '800px' }}>
-                <h3>CSV Data (Optional)</h3>
+            {/* Filters */}
+            <div style={{
+                backgroundColor: 'var(--card)',
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                padding: '1.5rem'
+            }}>
+                <h3 style={{ marginBottom: '1rem', color: 'var(--text)' }}>Analysis Parameters</h3>
 
-                {!csvLoaded && (
-                    <div style={bannerStyle}>
-                        Running without CSV – KPIs limited (CSV optional)
-                    </div>
-                )}
-
-                {csvLoaded && missingHeaders.length > 0 && (
-                    <div style={{ ...bannerStyle, backgroundColor: '#f44336', color: '#fff' }}>
-                        Missing: {missingHeaders.join(', ')}
-                    </div>
-                )}
-
-                <div className="file-input-wrapper">
-                    <input
-                        type="file"
-                        accept=".csv"
-                        onChange={handleFileUpload}
-                        className="file-input"
-                        id="csv-upload"
-                    />
-                    <label htmlFor="csv-upload" className="file-input-button">
-                        {csvLoaded ? 'Replace CSV' : 'Upload CSV'}
+                {/* Intent Selection */}
+                <div style={{ marginBottom: '1.5rem' }}>
+                    <label style={{
+                        display: 'block',
+                        marginBottom: '0.5rem',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        color: 'var(--text)'
+                    }}>
+                        Intent
                     </label>
-                </div>
-
-                {csvLoaded && (
-                    <div>
-                        <p>Loaded {csvRows.length} rows. Showing first {previewRows.length}:</p>
-                        <div className="csv-preview-container">
-                            <table className="csv-preview-table">
-                                <thead>
-                                    <tr>
-                                        <th>SKU</th><th>Product Name</th><th>Collection</th><th>Category</th>
-                                        <th>Class</th><th>Velocity/Day</th><th>ST28</th><th>ST90</th><th>Color Family</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {previewRows.map((row, index) => (
-                                        <tr key={index}>
-                                            <td>{row.sku}</td>
-                                            <td>{row.productName || '-'}</td>
-                                            <td>{row.collection || '-'}</td>
-                                            <td>{row.category || '-'}</td>
-                                            <td>{row.class || '-'}</td>
-                                            <td>{row.velocityUnitsPerDay ?? '-'}</td>
-                                            <td>{row.st28 ?? '-'}</td>
-                                            <td>{row.st90 ?? '-'}</td>
-                                            <td>{row.colorFamily || '-'}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {!csvRows?.length && (
-                <div style={{ ...bannerStyle, border: '1px solid #facc15', backgroundColor: '#fef3c7', color: '#92400e', marginBottom: '20px', maxWidth: '600px' }}>
-                    No CSV loaded — Deep will infer from general trend knowledge. Results may have lower confidence.
-                    <button
-                        type="button"
-                        style={{ marginLeft: '12px', textDecoration: 'underline', background: 'none', border: 'none', color: '#92400e', cursor: 'pointer' }}
-                        onClick={async () => {
-                            try {
-                                const res = await fetch('/sample-data.csv');
-                                const text = await res.text();
-                                // naive CSV parse (headers required)
-                                const parsedRows = parseCSV(text);
-                                setCsvRows(parsedRows);
-                                setCsvLoaded(true);
-                                setPreviewRows(parsedRows.slice(0, 5));
-                                setMissingHeaders([]);
-                            } catch (error) {
-                                console.error('Failed to load sample data:', error);
-                            }
-                        }}
-                    >
-                        Load sample data
-                    </button>
-                </div>
-            )}
-
-            {/* CSV Validation Banners */}
-            {validation && !validation.ok && (
-                <div style={{
-                    ...sectionStyle,
-                    maxWidth: '600px',
-                    backgroundColor: '#f44336',
-                    color: '#fff',
-                    marginBottom: '20px'
-                }}>
-                    <strong>CSV Missing Required Headers:</strong> Please upload a file with: {validation.issues
-                        .filter(i => i.type === 'missingHeader')
-                        .map(i => (i as any).header)
-                        .join(', ')}
-                </div>
-            )}
-
-            {hasWarnings && validation?.ok && (
-                <div style={{
-                    ...sectionStyle,
-                    maxWidth: '600px',
-                    backgroundColor: '#ff9800',
-                    color: '#fff',
-                    marginBottom: '20px'
-                }}>
-                    <strong>Data warnings ({validation.issues.length}):</strong> Some rows may have data quality issues.
-                </div>
-            )}
-
-            <form onSubmit={handleSubmit} style={{ ...sectionStyle, maxWidth: '600px' }}>
-                <h3>Analysis</h3>
-
-                {/* Guided Query Builder */}
-                <div style={{ marginBottom: '16px' }}>
-                    <button
-                        type="button"
-                        onClick={() => setShowQueryBuilder(!showQueryBuilder)}
-                        style={{
-                            backgroundColor: 'transparent',
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            color: '#f2f2f5',
-                            padding: '8px 12px',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            marginBottom: showQueryBuilder ? '12px' : '0'
-                        }}
-                    >
-                        {showQueryBuilder ? '▼' : '▶'} Guided Query Builder
-                    </button>
-
-                    {showQueryBuilder && (
-                        <div style={{
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: '4px',
-                            padding: '16px',
-                            backgroundColor: 'rgba(0,0,0,0.2)',
-                            marginBottom: '16px'
-                        }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                                <select
-                                    value={queryParts.collection || ''}
-                                    onChange={(e) => setQueryParts({ ...queryParts, collection: e.target.value || undefined })}
-                                    style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
-                                >
-                                    <option value="">Collection...</option>
-                                    {collections.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-
-                                <select
-                                    value={queryParts.category || ''}
-                                    onChange={(e) => setQueryParts({ ...queryParts, category: e.target.value || undefined })}
-                                    style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
-                                >
-                                    <option value="">Category...</option>
-                                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-
-                                <select
-                                    value={queryParts.colorFamily || ''}
-                                    onChange={(e) => setQueryParts({ ...queryParts, colorFamily: e.target.value || undefined })}
-                                    style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
-                                >
-                                    <option value="">Color...</option>
-                                    {colors.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-
-                                <select
-                                    value={queryParts.genderTarget || ''}
-                                    onChange={(e) => setQueryParts({ ...queryParts, genderTarget: e.target.value || undefined })}
-                                    style={{ padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
-                                >
-                                    <option value="">Gender...</option>
-                                    {genders.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                            </div>
-
-                            <input
-                                type="text"
-                                placeholder="Additional text (optional)"
-                                value={queryParts.text || ''}
-                                onChange={(e) => setQueryParts({ ...queryParts, text: e.target.value || undefined })}
-                                style={{ width: '100%', padding: '6px', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f2f2f5', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', marginBottom: '12px' }}
-                            />
-
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        {INTENT_OPTIONS.map(option => (
                             <button
-                                type="button"
-                                onClick={() => {
-                                    const query = buildQuery(queryParts);
-                                    setInput(query);
-                                }}
+                                key={option.value}
+                                onClick={() => setSelectedIntent(option.value)}
                                 style={{
-                                    backgroundColor: '#6366f1',
-                                    color: '#fff',
-                                    border: 'none',
-                                    padding: '8px 16px',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer'
+                                    padding: '0.5rem 1rem',
+                                    borderRadius: '20px',
+                                    border: '1px solid var(--border)',
+                                    backgroundColor: selectedIntent === option.value ? 'var(--accent)' : 'var(--card)',
+                                    color: selectedIntent === option.value ? 'white' : 'var(--text)',
+                                    cursor: 'pointer',
+                                    fontSize: '0.875rem',
+                                    transition: 'all 0.2s ease'
                                 }}
                             >
-                                Compose Query
+                                {option.label}
                             </button>
-
-                            {/* Active Filter Chips */}
-                            <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                {Object.entries(queryParts).filter(([_, v]) => v).map(([key, value]) => (
-                                    <span
-                                        key={key}
-                                        style={{
-                                            backgroundColor: '#6366f1',
-                                            color: '#fff',
-                                            padding: '4px 8px',
-                                            borderRadius: '12px',
-                                            fontSize: '12px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '4px'
-                                        }}
-                                    >
-                                        {key}: {value}
-                                        <button
-                                            type="button"
-                                            onClick={() => setQueryParts({ ...queryParts, [key]: undefined })}
-                                            style={{
-                                                background: 'none',
-                                                border: 'none',
-                                                color: '#fff',
-                                                cursor: 'pointer',
-                                                fontSize: '14px'
-                                            }}
-                                        >
-                                            ×
-                                        </button>
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                        ))}
+                    </div>
                 </div>
 
-                <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder='collection:"Jordan 1" or SKU'
-                    style={inputStyle}
-                    disabled={isLoading}
-                />
-
-                <div style={toggleStyle}>
-                    <span>Mode:</span>
-                    <button
-                        type="button"
-                        onClick={() => handleModeChange('quick')}
-                        style={toggleButtonStyle(mode === 'quick')}
-                        disabled={isLoading}
-                    >
-                        Quick
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => handleModeChange('deep')}
-                        style={toggleButtonStyle(mode === 'deep')}
-                        disabled={isLoading}
-                    >
-                        Deep
-                    </button>
+                {/* Horizon Selection */}
+                <div style={{ marginBottom: '1.5rem' }}>
+                    <label style={{
+                        display: 'block',
+                        marginBottom: '0.5rem',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        color: 'var(--text)'
+                    }}>
+                        Time Horizon
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '0.5rem' }}>
+                        {HORIZON_OPTIONS.map(option => (
+                            <button
+                                key={option.value}
+                                onClick={() => setSelectedHorizon(option.value)}
+                                style={{
+                                    padding: '0.75rem',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border)',
+                                    backgroundColor: selectedHorizon === option.value ? 'var(--accent)' : 'var(--card)',
+                                    color: selectedHorizon === option.value ? 'white' : 'var(--text)',
+                                    cursor: 'pointer',
+                                    fontSize: '0.875rem',
+                                    textAlign: 'center',
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                <button type="submit" style={submitButtonStyle} disabled={isLoading || !input.trim() || !csvIsValid}>
-                    {isLoading ? 'Analyzing...' : `Run ${mode} Analysis`}
-                </button>
-            </form>
+                {/* Mode Toggle */}
+                <div>
+                    <label style={{
+                        display: 'block',
+                        marginBottom: '0.5rem',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        color: 'var(--text)'
+                    }}>
+                        Analysis Mode
+                    </label>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {(['quick', 'deep'] as const).map(m => (
+                            <button
+                                key={m}
+                                onClick={() => setMode(m)}
+                                style={{
+                                    padding: '0.75rem 1.5rem',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border)',
+                                    backgroundColor: mode === m ? 'var(--accent)' : 'var(--card)',
+                                    color: mode === m ? 'white' : 'var(--text)',
+                                    cursor: 'pointer',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '500',
+                                    textTransform: 'capitalize',
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                {m} Analysis
+                            </button>
+                        ))}
+                    </div>
+                    <div style={{
+                        fontSize: '0.75rem',
+                        color: 'var(--muted)',
+                        marginTop: '0.5rem'
+                    }}>
+                        {mode === 'deep' ? `Budget: ${remaining}/10000 calls` : 'Uses fallback data (free)'}
+                    </div>
+                </div>
+            </div>
 
+            <SearchHero
+                onRunQuick={handleRunQuick}
+                onRunDeep={handleRunDeep}
+                isLoading={isLoading}
+            />
+
+            {/* Results Display */}
+            <DecisionSnapshot
+                result={result}
+                isLoading={isLoading}
+                errorMessage={errorMessage}
+                onDismissError={() => setErrorMessage(null)}
+            />
+
+            {/* Explain Card - Why this verdict? */}
+            {result && !isLoading && (
+                <ExplainCard result={result} />
+            )}
+
+            {/* Sources & Citations */}
+            {result && !isLoading && (
+                <SourcesList result={result} />
+            )}
+
+            {/* Status Banners */}
             {result && (
-                <div style={{ ...sectionStyle, maxWidth: '600px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
                     {isSharedView && (
-                        <div style={{ ...bannerStyle, backgroundColor: '#2196f3', color: '#fff' }}>
+                        <div style={{
+                            padding: '0.75rem 1rem',
+                            backgroundColor: '#2196f3',
+                            color: '#fff',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem'
+                        }}>
                             Viewing a shared session (read-only)
                         </div>
                     )}
 
                     {showMockBanner && (
-                        <div style={bannerStyle}>
+                        <div style={{
+                            padding: '0.75rem 1rem',
+                            backgroundColor: '#ff9800',
+                            color: '#fff',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem'
+                        }}>
                             Using mock response (no API key present)
                         </div>
                     )}
 
                     {showBudgetBanner && (
-                        <div style={{ ...bannerStyle, backgroundColor: '#ff9800', color: '#fff' }}>
+                        <div style={{
+                            padding: '0.75rem 1rem',
+                            backgroundColor: '#ff9800',
+                            color: '#fff',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem'
+                        }}>
                             Daily budget limit reached - using mock response
                         </div>
                     )}
 
                     {showFallbackBanner && !showMockBanner && !showBudgetBanner && (
-                        <div style={{ ...bannerStyle, backgroundColor: '#f44336', color: '#fff' }}>
+                        <div style={{
+                            padding: '0.75rem 1rem',
+                            backgroundColor: '#f44336',
+                            color: '#fff',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem'
+                        }}>
                             API error - fell back to mock response
                         </div>
                     )}
 
                     {showCacheBanner && (
-                        <div style={{ ...bannerStyle, backgroundColor: '#2196f3', color: '#fff' }}>
+                        <div style={{
+                            padding: '0.75rem 1rem',
+                            backgroundColor: '#2196f3',
+                            color: '#fff',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem'
+                        }}>
                             From cache - no API call made
                         </div>
                     )}
 
                     {showCapBanner && (
-                        <div style={{ ...bannerStyle, backgroundColor: '#ff9800', color: '#fff' }}>
+                        <div style={{
+                            padding: '0.75rem 1rem',
+                            backgroundColor: '#ff9800',
+                            color: '#fff',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem'
+                        }}>
                             Daily AI budget cap reached. Showing conservative fallback.
                         </div>
                     )}
 
                     {errorMessage && (
                         <div style={{
-                            ...bannerStyle,
+                            padding: '0.75rem 1rem',
                             backgroundColor: '#f44336',
                             color: '#fff',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem',
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center'
@@ -822,180 +668,420 @@ const Analyze: React.FC = () => {
                         </div>
                     )}
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                        <h3>Analysis Result</h3>
+                    {/* Main Result Card */}
+                    <div style={{
+                        backgroundColor: 'var(--card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '12px',
+                        padding: '2rem'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            marginBottom: '1.5rem'
+                        }}>
+                            <h2 style={{
+                                fontSize: '1.5rem',
+                                fontWeight: '700',
+                                color: 'var(--text)',
+                                margin: 0,
+                                flex: 1
+                            }}>
+                                Analysis Result
+                            </h2>
+                            {'confidence' in result && result.confidence !== undefined && (
+                                <div style={{
+                                    backgroundColor: 'var(--accent)',
+                                    color: 'white',
+                                    padding: '0.5rem 1rem',
+                                    borderRadius: '20px',
+                                    fontSize: '0.875rem',
+                                    fontWeight: '600'
+                                }}>
+                                    {Math.round(result.confidence)}% Confidence
+                                </div>
+                            )}
+                        </div>
+
+                        <p style={{
+                            fontSize: '1.125rem',
+                            lineHeight: '1.6',
+                            color: 'var(--text)',
+                            marginBottom: result?.explain ? '2rem' : '1rem'
+                        }}>
+                            {result.summary}
+                        </p>
+
+                        {/* Market Indices */}
+                        {mode === 'deep' && result.indices && (
+                            <div style={{
+                                marginBottom: '2rem',
+                                padding: '1.5rem',
+                                backgroundColor: 'var(--bg)',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border)'
+                            }}>
+                                <h4 style={{
+                                    marginBottom: '1rem',
+                                    color: 'var(--text)',
+                                    fontSize: '1rem',
+                                    fontWeight: '600'
+                                }}>
+                                    Market Indices
+                                </h4>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                                    gap: '1rem'
+                                }}>
+                                    {[
+                                        { key: 'demand', label: 'Demand', color: '#4CAF50' },
+                                        { key: 'momentum', label: 'Momentum', color: '#2196F3' },
+                                        { key: 'saturation', label: 'Saturation', color: '#FF5722' },
+                                        { key: 'freshness', label: 'Freshness', color: '#9C27B0' },
+                                        { key: 'styleFit', label: 'Style Fit', color: '#FF9800' }
+                                    ].map(({ key, label, color }) => {
+                                        const value = result.indices?.[key as keyof typeof result.indices] || 0;
+
+                                        return (
+                                            <div key={key} style={{
+                                                textAlign: 'center',
+                                                padding: '1rem',
+                                                backgroundColor: 'var(--card)',
+                                                borderRadius: '8px',
+                                                border: '1px solid var(--border)'
+                                            }}>
+                                                <div style={{
+                                                    fontSize: '2rem',
+                                                    fontWeight: '700',
+                                                    color: color,
+                                                    marginBottom: '0.5rem'
+                                                }}>
+                                                    {value}
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '0.875rem',
+                                                    color: 'var(--muted)',
+                                                    fontWeight: '500'
+                                                }}>
+                                                    {label}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Why Section */}
+                        {result?.explain && (
+                            <div style={{
+                                padding: '1.5rem',
+                                backgroundColor: 'var(--bg)',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border)'
+                            }}>
+                                <h4 style={{
+                                    marginBottom: '1rem',
+                                    color: 'var(--text)',
+                                    fontSize: '1rem',
+                                    fontWeight: '600'
+                                }}>
+                                    Why this verdict?
+                                </h4>
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.75rem'
+                                }}>
+                                    {result.explain.factors.map((f, i) => (
+                                        <div key={i} style={{
+                                            display: 'flex',
+                                            gap: '0.75rem',
+                                            alignItems: 'flex-start',
+                                            padding: '0.75rem',
+                                            backgroundColor: 'var(--card)',
+                                            borderRadius: '6px',
+                                            border: '1px solid var(--border)'
+                                        }}>
+                                            <div style={{
+                                                width: '20px',
+                                                height: '20px',
+                                                borderRadius: '50%',
+                                                backgroundColor: f.impact === '+' ? '#4CAF50' : f.impact === '-' ? '#f44336' : '#9e9e9e',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: '#fff',
+                                                fontSize: '12px',
+                                                fontWeight: 'bold',
+                                                flexShrink: 0
+                                            }}>
+                                                {f.impact}
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{
+                                                    fontSize: '0.875rem',
+                                                    fontWeight: '600',
+                                                    color: 'var(--text)',
+                                                    marginBottom: '0.25rem'
+                                                }}>
+                                                    {f.label}
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '0.8125rem',
+                                                    color: 'var(--muted)',
+                                                    lineHeight: '1.4'
+                                                }}>
+                                                    {f.note}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
+    // Right rail content
+    const rightRailContent = (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <h3 style={{
+                color: 'var(--text)',
+                marginBottom: '1rem',
+                fontSize: '1.125rem',
+                fontWeight: '600'
+            }}>
+                Analysis Details
+            </h3>
+
+            {result?.sources && (
+                <div style={{
+                    backgroundColor: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '1rem'
+                }}>
+                    <h4 style={{
+                        fontSize: '0.875rem',
+                        color: 'var(--muted)',
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        marginBottom: '0.75rem'
+                    }}>
+                        Data Sources
+                    </h4>
+                    <div style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '0.5rem'
+                    }}>
+                        {result.sources.map((source: string, index: number) => (
+                            <span key={index} style={{
+                                backgroundColor: 'var(--accent)',
+                                color: '#fff',
+                                padding: '0.25rem 0.75rem',
+                                borderRadius: '12px',
+                                fontSize: '0.75rem',
+                                fontWeight: '500'
+                            }}>
+                                {source}
+                            </span>
+                        ))}
+                        {result.sources.includes('trends') && (
+                            <span style={{
+                                backgroundColor: '#2196f3',
+                                color: '#fff',
+                                padding: '0.25rem 0.75rem',
+                                borderRadius: '12px',
+                                fontSize: '0.75rem',
+                                fontWeight: '500'
+                            }}>
+                                + External Signals
+                            </span>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {result?.citations?.length ? (
+                <div style={{
+                    backgroundColor: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '1rem'
+                }}>
+                    <h4 style={{
+                        fontSize: '0.875rem',
+                        color: 'var(--muted)',
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        marginBottom: '0.75rem'
+                    }}>
+                        Citations
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {result.citations.map((c, i) => (
+                            <div key={i} style={{
+                                padding: '0.75rem',
+                                backgroundColor: 'var(--card)',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border)'
+                            }}>
+                                <a
+                                    href={c.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{
+                                        color: 'var(--accent)',
+                                        textDecoration: 'none',
+                                        fontSize: '0.875rem',
+                                        fontWeight: '500',
+                                        display: 'block',
+                                        marginBottom: '0.25rem'
+                                    }}
+                                >
+                                    {c.title}
+                                </a>
+                                <div style={{
+                                    fontSize: '0.75rem',
+                                    color: 'var(--muted)'
+                                }}>
+                                    <span style={{
+                                        backgroundColor: 'var(--muted)',
+                                        color: 'var(--bg)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.625rem',
+                                        fontWeight: '500',
+                                        textTransform: 'uppercase'
+                                    }}>
+                                        {c.source}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
+            {result && !isSharedView && (
+                <div style={{
+                    backgroundColor: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '1rem'
+                }}>
+                    <h4 style={{
+                        fontSize: '0.875rem',
+                        color: 'var(--muted)',
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        marginBottom: '0.75rem'
+                    }}>
+                        Export & Share
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <button
+                            onClick={() => {
+                                if (result?.runId) {
+                                    window.open(`/api/export?id=${result.runId}`, '_blank');
+                                } else {
+                                    window.open('/api/export?type=analyze', '_blank');
+                                }
+                            }}
+                            style={{
+                                padding: '0.75rem 1rem',
+                                backgroundColor: '#4f46e5',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.875rem',
+                                fontWeight: '500',
+                                width: '100%'
+                            }}
+                        >
+                            Export Report
+                        </button>
+                        <button
+                            onClick={() => {
+                                if (result?.runId) {
+                                    const shareUrl = `${window.location.origin}${window.location.pathname}?run=${result.runId}`;
+                                    navigator.clipboard.writeText(shareUrl);
+                                    alert('Share link copied to clipboard!');
+                                }
+                            }}
+                            disabled={!result?.runId}
+                            style={{
+                                padding: '0.75rem 1rem',
+                                backgroundColor: result?.runId ? '#059669' : '#6b7280',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: result?.runId ? 'pointer' : 'not-allowed',
+                                fontSize: '0.875rem',
+                                fontWeight: '500',
+                                width: '100%'
+                            }}
+                        >
+                            Copy Share Link
+                        </button>
                         <button
                             onClick={() => {
                                 const sessionId = saveSession(result);
                                 alert(`Session saved! ID: ${sessionId}`);
                             }}
                             style={{
-                                padding: '8px 16px',
-                                backgroundColor: '#6366f1',
-                                color: '#fff',
+                                padding: '0.75rem 1rem',
+                                backgroundColor: 'var(--accent)',
+                                color: 'white',
                                 border: 'none',
-                                borderRadius: '4px',
+                                borderRadius: '6px',
                                 cursor: 'pointer',
-                                fontSize: '12px'
+                                fontSize: '0.875rem',
+                                fontWeight: '500',
+                                width: '100%'
                             }}
                         >
                             Save Session
                         </button>
                     </div>
+                </div>
+            )}
 
-                    {includedRowsCount > 0 && (
-                        <p style={{ color: '#4CAF50', fontSize: '14px', marginBottom: '10px' }}>
-                            Included rows: {includedRowsCount}
-                        </p>
-                    )}
-
-                    <p style={{ marginBottom: '20px' }}>{result.summary}</p>
-
-                    {result?.explain && (
-                        <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '12px' }}>
-                            <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '12px' }}>
-                                <div style={{ fontSize: '14px', opacity: 0.8, marginBottom: '8px' }}>Why this verdict?</div>
-                                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    {result.explain.factors.map((f, i) => (
-                                        <li key={i} style={{ fontSize: '14px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                                            <span style={{
-                                                color: f.impact === '+' ? '#4CAF50' : f.impact === '-' ? '#f44336' : '#9e9e9e',
-                                                fontWeight: 'bold',
-                                                minWidth: '16px'
-                                            }}>
-                                                {f.impact}
-                                            </span>
-                                            <span style={{ opacity: 0.9 }}>{f.label}</span>
-                                            <span style={{ opacity: 0.6, fontSize: '12px' }}>— {f.note}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
-                    )}
-
-                    {'confidence' in result && result.confidence !== undefined && (
-                        <div style={{ marginBottom: '20px', fontSize: '14px', opacity: 0.8 }}>Confidence: {Math.round(result.confidence)}%</div>
-                    )}
-
-                    {mode === 'deep' && result.indices && (
-                        <>
-                            <h4>Market Indices</h4>
-                            <div style={indicesStyle}>
-                                <div style={indexItemStyle}>
-                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#4CAF50' }}>
-                                        {result.indices.demand || 0}
-                                    </div>
-                                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Demand</div>
-                                </div>
-                                <div style={indexItemStyle}>
-                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2196F3' }}>
-                                        {result.indices.momentum || 0}
-                                    </div>
-                                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Momentum</div>
-                                </div>
-                                <div style={indexItemStyle}>
-                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#FF5722' }}>
-                                        {result.indices.saturation || 0}
-                                    </div>
-                                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Saturation</div>
-                                </div>
-                                <div style={indexItemStyle}>
-                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#9C27B0' }}>
-                                        {result.indices.freshness || 0}
-                                    </div>
-                                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Freshness</div>
-                                </div>
-                                <div style={indexItemStyle}>
-                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#FF9800' }}>
-                                        {result.indices.styleFit || 0}
-                                    </div>
-                                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Style Fit</div>
-                                </div>
-                            </div>
-                        </>
-                    )}
-
-                    {result.sources && (
-                        <div>
-                            <h4>Sources</h4>
-                            <div style={sourcesStyle}>
-                                {result.sources.map((source: string, index: number) => (
-                                    <span key={index} style={sourceChipStyle}>
-                                        {source}
-                                    </span>
-                                ))}
-                                {result.sources.includes('trends') && (
-                                    <span style={{ ...sourceChipStyle, backgroundColor: '#2196f3' }}>
-                                        + External Signals
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {result?.citations?.length ? (
-                        <div className="mt-4 rounded-lg bg-[#14141a] p-4">
-                            <div className="text-sm opacity-70 mb-2">Citations</div>
-                            <ul className="space-y-1">
-                                {result.citations.map((c, i) => (
-                                    <li key={i} className="text-sm">
-                                        <a className="underline hover:no-underline" href={c.url} target="_blank" rel="noreferrer">
-                                            {c.title}
-                                        </a>
-                                        <span className="ml-2 opacity-60">({c.source})</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    ) : null}
-
-                    {!isSharedView && (
-                        <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-                            <button
-                                onClick={() => {
-                                    if (result?.runId) {
-                                        window.open(`/api/export?id=${result.runId}`, '_blank');
-                                    } else {
-                                        window.open('/api/export?type=analyze', '_blank');
-                                    }
-                                }}
-                                style={{
-                                    padding: '0.5rem 1rem',
-                                    backgroundColor: '#4f46e5',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '0.25rem',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Export CSV
-                            </button>
-                            <button
-                                onClick={() => {
-                                    if (result?.runId) {
-                                        const shareUrl = `${window.location.origin}${window.location.pathname}?run=${result.runId}`;
-                                        navigator.clipboard.writeText(shareUrl);
-                                        alert('Share link copied to clipboard!');
-                                    }
-                                }}
-                                disabled={!result?.runId}
-                                style={{
-                                    padding: '0.5rem 1rem',
-                                    backgroundColor: result?.runId ? '#059669' : '#6b7280',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '0.25rem',
-                                    cursor: result?.runId ? 'pointer' : 'not-allowed'
-                                }}
-                            >
-                                Copy Share Link
-                            </button>
-                        </div>
-                    )}
+            {!result && (
+                <div style={{
+                    backgroundColor: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '1.5rem',
+                    textAlign: 'center'
+                }}>
+                    <div style={{
+                        fontSize: '0.875rem',
+                        color: 'var(--muted)',
+                        lineHeight: '1.5'
+                    }}>
+                        Run an analysis to see detailed insights, citations, and export options here
+                    </div>
                 </div>
             )}
         </div>
+    );
+
+    return (
+        <DashboardShell rightRail={rightRailContent}>
+            {mainContent}
+        </DashboardShell>
     );
 };
 

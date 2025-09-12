@@ -18,12 +18,17 @@ export default function SettingsPage() {
             <h2 className="text-xl font-semibold">Settings</h2>
 
             {/* Theme Toggle */}
-            <section className="space-y-2">
+            <section className="space-y-3 p-4 rounded-lg" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}>
                 <h3 className="font-medium">Appearance</h3>
-                <label className="block">Theme
-                    <select className="mt-1 w-full rounded bg-black/30 p-2" value={s.theme}
-                        onChange={e => handleThemeChange(e.target.value as any)}>
-                        <option value="light">Light</option>
+                <label className="block">
+                    <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>Theme</span>
+                    <select
+                        className="mt-1 w-full rounded p-2 border"
+                        style={{ backgroundColor: 'var(--card)', color: 'var(--text)', borderColor: 'var(--border)' }}
+                        value={s.theme}
+                        onChange={e => handleThemeChange(e.target.value as any)}
+                    >
+                        <option value="light">Light (Eggshell)</option>
                         <option value="dark">Dark</option>
                         <option value="system">System</option>
                     </select>

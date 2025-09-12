@@ -96,6 +96,14 @@ export function updateSettings(patch: Partial<Settings>) {
     } catch {
         // Ignore storage errors
     }
+
+    // Apply theme if it changed
+    if (patch.theme) {
+        import('./theme').then(({ applyTheme }) => {
+            applyTheme(patch.theme!);
+        });
+    }
+
     subs.forEach(fn => fn(_settings));
 }
 export function subscribeSettings(fn: Sub) { subs.add(fn); return () => { subs.delete(fn); }; }
