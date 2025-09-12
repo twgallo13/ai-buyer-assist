@@ -15,6 +15,20 @@ export type Explain = {
 
 export type Citation = { title: string; url: string; source: string };
 
+export type RegionWeights = Record<string, number>;
+
+export type Preset = {
+    id: string;
+    name?: string;
+    label: string;
+    description?: string;
+    scenario?: string;
+    weights: Record<keyof Indices, number>;
+    thresholds: Record<string, number>;
+    regionWeights?: RegionWeights;
+    expectations?: Record<string, unknown>;
+};
+
 export type Query = {
     intent: 'sku' | 'brand' | 'collection' | 'style' | 'color' | 'question';
     terms: string[];

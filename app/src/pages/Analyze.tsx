@@ -12,40 +12,6 @@ import {
     HORIZON_OPTIONS
 } from '../lib/fallback-taxonomy';
 
-// Mini gauge component for dashboard
-const MiniGauge: React.FC<{
-    label: string;
-    value: number;
-    color?: string;
-}> = ({ label, value, color = 'var(--accent)' }) => {
-    const percentage = Math.max(0, Math.min(100, value));
-    
-    return (
-        <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '4px', color: 'var(--text)' }}>{label}</div>
-            <div style={{ 
-                width: '60px', 
-                height: '8px', 
-                backgroundColor: 'var(--border)', 
-                borderRadius: '4px', 
-                margin: '0 auto 4px',
-                overflow: 'hidden'
-            }}>
-                <div
-                    style={{ 
-                        height: '100%', 
-                        borderRadius: '4px',
-                        backgroundColor: color,
-                        width: `${percentage}%`,
-                        transition: 'width 0.3s ease'
-                    }}
-                />
-            </div>
-            <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text)' }}>{Math.round(value)}</div>
-        </div>
-    );
-};
-
 // Load persisted mode or use settings default
 function getLastMode(): 'quick' | 'deep' {
     try {
@@ -919,56 +885,8 @@ const Analyze: React.FC = () => {
                 </form>
 
                 {result && (
-                    <>
-                        {/* Dashboard Header Cards */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', marginBottom: '20px', maxWidth: '800px' }}>
-                            {/* Verdict & Confidence */}
-                            <div style={{ 
-                                backgroundColor: 'var(--card)', 
-                                border: '1px solid var(--border)', 
-                                borderRadius: '8px', 
-                                padding: '20px', 
-                                textAlign: 'center' 
-                            }}>
-                                <div style={{
-                                    display: 'inline-block',
-                                    padding: '8px 16px',
-                                    borderRadius: '20px',
-                                    color: 'white',
-                                    fontWeight: 'bold',
-                                    marginBottom: '8px',
-                                    backgroundColor: 
-                                        result.verdict === 'Go' ? '#22c55e' :
-                                        result.verdict === 'Hold' ? '#eab308' : '#ef4444'
-                                }}>
-                                    {result.verdict}
-                                </div>
-                                <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '4px' }}>
-                                    {result.confidence || 0}%
-                                </div>
-                                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Confidence</div>
-                            </div>
-
-                            {/* Five Indices */}
-                            <div style={{ 
-                                backgroundColor: 'var(--card)', 
-                                border: '1px solid var(--border)', 
-                                borderRadius: '8px', 
-                                padding: '20px' 
-                            }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <MiniGauge label="Demand" value={result.demand} />
-                                    <MiniGauge label="Momentum" value={result.momentum} />
-                                    <MiniGauge label="Saturation" value={result.saturation} />
-                                    <MiniGauge label="Freshness" value={result.freshness} />
-                                    <MiniGauge label="Style Fit" value={result.styleFit} />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Existing Results Section */}
-                        <div style={{ ...sectionStyle, maxWidth: '600px' }}>
-                            {isSharedView && (
+                    <div style={{ ...sectionStyle, maxWidth: '600px' }}>
+                        {isSharedView && (
                             <div style={{ ...bannerStyle, backgroundColor: '#2196f3', color: '#fff' }}>
                                 Viewing a shared session (read-only)
                             </div>
@@ -1201,8 +1119,7 @@ const Analyze: React.FC = () => {
                                 </button>
                             </div>
                         )}
-                        </div>
-                    </>
+                    </div>
                 )}
             </div>
 
