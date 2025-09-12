@@ -1,5 +1,6 @@
 import type { Scenario } from './settings';
 import type { Weights, Thresholds } from './types';
+import { getUniqueColorTags, groupColorTagsByPalette } from './color-palette';
 import type { Indices, Explain } from './types';
 
 type Row = {
@@ -60,6 +61,12 @@ export function explainQuick(rows: Row[], weights: Weights, scenario: Scenario):
     const s90 = avg(st90);
     const delta = s28 - s90;
 
+    // v1.9.5: Color analysis
+    const uniqueColors = getUniqueColorTags(r as Array<{colorTags?: string[]}>);
+    const paletteGroups = groupColorTagsByPalette(uniqueColors);
+    const dominantPalette = Object.entries(paletteGroups)
+        .sort(([,a], [,b]) => b.length - a.length)[0];
+
     const factors: Explain['factors'] = [
         {
             label: 'Velocity',
@@ -83,10 +90,44 @@ export function explainQuick(rows: Row[], weights: Weights, scenario: Scenario):
         },
     ];
 
+    // Add color-based factor if we have color data
+    if (uniqueColors.length > 0 && dominantPalette) {
+        const [paletteName, paletteColors] = dominantPalette;
+        const colorDiversity = uniqueColors.length;
+        const isPaletteConcentrated = paletteColors.length / uniqueColors.length > 0.6;
+        
+        let colorImpact: '+' | '-' | '~' = '~';
+        let colorNote = `${colorDiversity} colors, ${paletteName} dominant`;
+        
+        // Analyze color impact based on palette and diversity
+        if (paletteName === 'neon' && isPaletteConcentrated) {
+            colorImpact = '+';
+            colorNote += ' — bright colors trending';
+        } else if (paletteName === 'mono' && isPaletteConcentrated) {
+            colorImpact = '+';
+            colorNote += ' — neutral palette versatile';
+        } else if (paletteName === 'primary' && isPaletteConcentrated) {
+            colorImpact = '~';
+            colorNote += ' — classic colors stable';
+        } else if (colorDiversity > 10) {
+            colorImpact = '-';
+            colorNote += ' — high diversity may saturate';
+        } else if (colorDiversity < 3) {
+            colorImpact = '-';
+            colorNote += ' — limited options may constrain';
+        }
+
+        factors.push({
+            label: 'Color Strategy',
+            impact: colorImpact,
+            note: colorNote
+        });
+    }
+
     return {
         mode: 'quick',
         factors,
         weights,
-        inputs: { velAvg: v, st28: s28, st90: s90, delta }
+        inputs: { velAvg: v, st28: s28, st90: s90, delta, colors: uniqueColors.length }
     };
 }

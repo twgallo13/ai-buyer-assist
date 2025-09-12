@@ -7,6 +7,7 @@ import { getCsvRows, setCsv, setCsvRows, subscribeCsv, getCsvValidation } from '
 import { saveSession } from '../lib/sessions';
 import { validateCsv } from '../lib/csv-validate';
 import { uniqueValues, buildQuery, type QueryParts } from '../lib/query-builder';
+import { parseColorTags, getColorForColorTag } from '../lib/color-palette';
 
 // Load persisted mode or use settings default
 function getLastMode(): 'quick' | 'deep' {
@@ -182,6 +183,11 @@ const Analyze: React.FC = () => {
             row.category = findValue(headerLookup.category);
             row.class = findValue(headerLookup.class);
             row.colorFamily = findValue(headerLookup.colorFamily);
+
+            // v1.9.5: Parse color tags from colorFamily
+            if (row.colorFamily) {
+                row.colorTags = parseColorTags(row.colorFamily);
+            }
 
             ['velocityUnitsPerDay', 'st28', 'st90'].forEach(field => {
                 const value = findValue(headerLookup[field as keyof typeof headerLookup]);
@@ -859,8 +865,33 @@ const Analyze: React.FC = () => {
                                             }}>
                                                 {f.impact}
                                             </span>
-                                            <span style={{ opacity: 0.9 }}>{f.label}</span>
-                                            <span style={{ opacity: 0.6, fontSize: '12px' }}>— {f.note}</span>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                                                    <span style={{ opacity: 0.9 }}>{f.label}</span>
+                                                    {f.label === 'Color Strategy' && csvRows && (
+                                                        <div style={{ display: 'flex', gap: '2px' }}>
+                                                            {csvRows.slice(0, 10)
+                                                                .filter(row => row.colorTags && row.colorTags.length > 0)
+                                                                .slice(0, 6)
+                                                                .map((row, idx) => (
+                                                                    <div
+                                                                        key={idx}
+                                                                        style={{
+                                                                            width: '12px',
+                                                                            height: '12px',
+                                                                            borderRadius: '50%',
+                                                                            backgroundColor: getColorForColorTag(row.colorTags![0]),
+                                                                            border: '1px solid rgba(255,255,255,0.2)',
+                                                                        }}
+                                                                        title={row.colorTags![0]}
+                                                                    />
+                                                                ))
+                                                            }
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div style={{ opacity: 0.6, fontSize: '12px' }}>— {f.note}</div>
+                                            </div>
                                         </li>
                                     ))}
                                 </ul>

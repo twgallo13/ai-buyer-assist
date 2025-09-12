@@ -8,6 +8,7 @@ export type Row = {
     st28?: number;  // Historic Sell-through 28d
     st90?: number;  // Historic Sell-through 90d
     colorFamily?: string;
+    colorTags?: string[];  // v1.9.5: Multi-color support - parsed from colorFamily
 };
 
 export type Indices = {
