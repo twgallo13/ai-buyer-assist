@@ -21,11 +21,11 @@ export function applyTheme(t: Theme): void {
         root.style.setProperty('--accent', '#6366f1');
     } else {
         // light / eggshell
-        root.style.setProperty('--bg',   '#F7F5EE');  /* eggshell */
+        root.style.setProperty('--bg', '#F7F5EE');  /* eggshell */
         root.style.setProperty('--card', '#ffffff');
         root.style.setProperty('--text', '#1a1b1f');
-        root.style.setProperty('--muted','#666a73');
-        root.style.setProperty('--accent','#5b5ee6');
+        root.style.setProperty('--muted', '#666a73');
+        root.style.setProperty('--accent', '#5b5ee6');
     }
 }
 
