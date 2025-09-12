@@ -7,7 +7,6 @@ import SettingsPage from './pages/Settings'
 import SessionsPage from './pages/Sessions'
 import UsagePage from './pages/Usage'
 import ThemeToggle from './components/ThemeToggle'
-
 import './styles/theme.css'
 
 function App() {
@@ -16,11 +15,9 @@ function App() {
 
   useEffect(() => {
     // Initialize theme from settings
-    import('./lib/settings').then(({ getSettings }) => {
+    import('./lib/settings').then(({ getSettings, applyTheme }) => {
       const { theme } = getSettings();
-      import('./lib/theme').then(({ initTheme }) => {
-        initTheme(theme);
-      });
+      applyTheme(theme);
     });
 
     // Poll usage every 20 seconds
@@ -38,109 +35,76 @@ function App() {
 
     fetchUsage(); // Initial fetch
     const interval = setInterval(fetchUsage, 20000); // Every 20 seconds
+
     return () => clearInterval(interval);
   }, []);
 
-  const navButtonStyle = (isActive: boolean) => ({
-    padding: '0.5rem 1rem',
-    backgroundColor: isActive ? 'var(--accent)' : 'transparent',
-    border: '1px solid var(--accent)',
-    borderRadius: 'var(--radius-md)',
-    color: isActive ? 'var(--accent-contrast)' : 'var(--accent)',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    outline: 'none',
-    fontSize: '0.875rem',
-    fontWeight: 500
-  });
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'analyze': return <Analyze />;
+      case 'trendradar': return <TrendRadar />;
+      case 'compare': return <ComparePage />;
+      case 'batch': return <BatchPage />;
+      case 'settings': return <SettingsPage />;
+      case 'sessions': return <SessionsPage />;
+      case 'usage': return <UsagePage />;
+      default: return <Analyze />;
+    }
+  };
 
   return (
-    <div style={{ minHeight: '100vh' }}>
-      <nav style={{
-        borderBottom: '1px solid var(--border)',
-        padding: 'var(--space-4)',
-        backgroundColor: 'var(--card)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100
-      }}>
-        <div className="container">
-          <div style={{ display: 'flex', gap: 'var(--space-4)', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-              <button
-                onClick={() => setCurrentPage('analyze')}
-                style={navButtonStyle(currentPage === 'analyze')}
-              >
-                Analyze
-              </button>
-              <button
-                onClick={() => setCurrentPage('trendradar')}
-                style={navButtonStyle(currentPage === 'trendradar')}
-              >
-                Trend Radar
-              </button>
-              <button
-                onClick={() => setCurrentPage('compare')}
-                style={navButtonStyle(currentPage === 'compare')}
-              >
-                Compare
-              </button>
-              <button
-                onClick={() => setCurrentPage('batch')}
-                style={navButtonStyle(currentPage === 'batch')}
-              >
-                Batch
-              </button>
-              <button
-                onClick={() => setCurrentPage('settings')}
-                style={navButtonStyle(currentPage === 'settings')}
-              >
-                Settings
-              </button>
-              <button
-                onClick={() => setCurrentPage('sessions')}
-                style={navButtonStyle(currentPage === 'sessions')}
-              >
-                Sessions
-              </button>
-              <button
-                onClick={() => setCurrentPage('usage')}
-                style={navButtonStyle(currentPage === 'usage')}
-              >
-                Usage
-              </button>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Navigation */}
+      <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex">
+              <div className="flex-shrink-0 flex items-center">
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                  AI Buyer Assistant
+                </h1>
+              </div>
+              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+                {[
+                  { key: 'analyze', label: 'Analyze' },
+                  { key: 'trendradar', label: 'Trends' },
+                  { key: 'compare', label: 'Compare' },
+                  { key: 'batch', label: 'Batch' },
+                  { key: 'settings', label: 'Settings' },
+                  { key: 'sessions', label: 'Sessions' },
+                  { key: 'usage', label: 'Usage' }
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setCurrentPage(key as any)}
+                    className={`${currentPage === key
+                        ? 'border-indigo-500 text-gray-900 dark:text-white'
+                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                      } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <ThemeToggle />
+            <div className="flex items-center space-x-4">
               {usage && (
-                <div style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: usage.deepCalls >= usage.budget ? 'var(--error)' : 'var(--success)',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  color: '#ffffff'
-                }}>
-                  Deep: {usage.deepCalls} / {usage.budget}
-                </div>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {usage.deepCalls}/{usage.budget} calls
+                </span>
               )}
+              <ThemeToggle />
             </div>
           </div>
         </div>
       </nav>
 
-      <div style={{ paddingTop: 'var(--space-6)', paddingBottom: 'var(--space-6)' }}>
-        {currentPage === 'analyze' && <Analyze />}
-        {currentPage === 'trendradar' && <TrendRadar />}
-        {currentPage === 'compare' && <ComparePage />}
-        {currentPage === 'batch' && <BatchPage />}
-        {currentPage === 'settings' && <SettingsPage />}
-        {currentPage === 'sessions' && <SessionsPage />}
-        {currentPage === 'usage' && <UsagePage />}
-      </div>
+      {/* Main content */}
+      <main className="flex-1">
+        {renderPage()}
+      </main>
     </div>
   );
 }
 
-export default App
+export default App;
