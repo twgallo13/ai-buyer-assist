@@ -1,10 +1,10 @@
-export type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeMode = 'light' | 'dark';
 
 const THEME_KEY = 'aba_theme_mode';
 
 export function getStoredTheme(): ThemeMode {
     const v = localStorage.getItem(THEME_KEY) as ThemeMode | null;
-    return v ?? 'system';
+    return v ?? 'light'; // Default to light theme
 }
 
 export function setStoredTheme(mode: ThemeMode) {
@@ -13,11 +13,10 @@ export function setStoredTheme(mode: ThemeMode) {
 
 export function applyTheme(mode: ThemeMode) {
     const body = document.body;
-    body.removeAttribute('data-theme'); // reset
     body.setAttribute('data-theme', mode);
 }
 
 export function initTheme() {
-    const m = getStoredTheme();
-    applyTheme(m);
+    const mode = getStoredTheme();
+    applyTheme(mode);
 }

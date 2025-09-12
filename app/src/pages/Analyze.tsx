@@ -370,8 +370,8 @@ const Analyze: React.FC = () => {
 
     const containerStyle: React.CSSProperties = {
         minHeight: '100vh',
-        backgroundColor: '#1a1a1a',
-        color: '#ffffff',
+        backgroundColor: 'var(--bg)',
+        color: 'var(--text)',
         padding: '20px',
         fontFamily: 'Arial, sans-serif'
     };
@@ -384,7 +384,7 @@ const Analyze: React.FC = () => {
     const sectionStyle: React.CSSProperties = {
         maxWidth: '600px',
         margin: '0 auto',
-        backgroundColor: '#2a2a2a',
+        backgroundColor: 'var(--card)',
         padding: '30px',
         borderRadius: '8px',
         marginBottom: '30px'
@@ -393,10 +393,10 @@ const Analyze: React.FC = () => {
     const inputStyle: React.CSSProperties = {
         width: '100%',
         padding: '12px',
-        backgroundColor: '#3a3a3a',
-        border: '1px solid #555',
+        backgroundColor: 'var(--card)',
+        border: '1px solid var(--border)',
         borderRadius: '4px',
-        color: '#ffffff',
+        color: 'var(--text)',
         fontSize: '16px',
         marginBottom: '20px'
     };
@@ -410,8 +410,8 @@ const Analyze: React.FC = () => {
 
     const toggleButtonStyle = (active: boolean): React.CSSProperties => ({
         padding: '8px 16px',
-        backgroundColor: active ? '#4CAF50' : '#555',
-        color: '#ffffff',
+        backgroundColor: active ? 'var(--accent)' : 'var(--card)',
+        color: 'var(--text)',
         border: 'none',
         borderRadius: '4px',
         cursor: 'pointer',
@@ -421,8 +421,8 @@ const Analyze: React.FC = () => {
     const submitButtonStyle: React.CSSProperties = {
         width: '100%',
         padding: '12px',
-        backgroundColor: isLoading ? '#666' : '#0066cc',
-        color: '#ffffff',
+        backgroundColor: isLoading ? 'var(--muted)' : 'var(--accent)',
+        color: 'var(--text)',
         border: 'none',
         borderRadius: '4px',
         cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -449,7 +449,7 @@ const Analyze: React.FC = () => {
     };
 
     const indexItemStyle: React.CSSProperties = {
-        backgroundColor: '#3a3a3a',
+        backgroundColor: 'var(--card)',
         padding: '15px',
         borderRadius: '4px',
         textAlign: 'center'

@@ -34,17 +34,17 @@ export default function UsagePage() {
             {loading && <div>Loading…</div>}
             {u && (
                 <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-lg bg-[#14141a] p-4"><div className="text-sm opacity-70">Date</div><div className="text-2xl">{u.date}</div></div>
-                    <div className="rounded-lg bg-[#14141a] p-4"><div className="text-sm opacity-70">Cap</div><div className="text-2xl">{u.cap}</div></div>
-                    <div className="rounded-lg bg-[#14141a] p-4"><div className="text-sm opacity-70">Calls today</div><div className="text-2xl">{u.calls}</div></div>
-                    <div className="rounded-lg bg-[#14141a] p-4"><div className="text-sm opacity-70">Blocked (cap)</div><div className="text-2xl">{u.blocked}</div></div>
-                    <div className="rounded-lg bg-[#14141a] p-4"><div className="text-sm opacity-70">Cache hits</div><div className="text-2xl">{u.cacheHits}</div></div>
-                    <div className="rounded-lg bg-[#14141a] p-4"><div className="text-sm opacity-70">Cache size</div><div className="text-2xl">{u.cacheSize}</div></div>
+                    <div className="card"><div className="text-sm opacity-70">Date</div><div className="text-2xl">{u.date}</div></div>
+                    <div className="card"><div className="text-sm opacity-70">Cap</div><div className="text-2xl">{u.cap}</div></div>
+                    <div className="card"><div className="text-sm opacity-70">Calls today</div><div className="text-2xl">{u.calls}</div></div>
+                    <div className="card"><div className="text-sm opacity-70">Blocked (cap)</div><div className="text-2xl">{u.blocked}</div></div>
+                    <div className="card"><div className="text-sm opacity-70">Cache hits</div><div className="text-2xl">{u.cacheHits}</div></div>
+                    <div className="card"><div className="text-sm opacity-70">Cache size</div><div className="text-2xl">{u.cacheSize}</div></div>
                 </div>
             )}
             <div className="flex gap-2">
-                <button className="rounded-lg px-3 py-2 bg-[#2a2a33]" onClick={load}>Refresh</button>
-                <button className="rounded-lg px-3 py-2 bg-[#3a2a2a]" onClick={reset}>Reset (dev)</button>
+                <button className="card rounded-lg px-3 py-2" onClick={load}>Refresh</button>
+                <button className="card rounded-lg px-3 py-2" onClick={reset}>Reset (dev)</button>
             </div>
             <p className="text-sm opacity-70">When the daily cap is reached, Deep results will gracefully degrade and show a banner.</p>
         </div>

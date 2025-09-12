@@ -49,8 +49,8 @@ export default function TrendRadar() {
     };
 
     return (
-        <div style={{ padding: '2rem', backgroundColor: '#0b0b0f', minHeight: '100vh' }}>
-            <h2 style={{ color: '#f2f2f5', marginBottom: '2rem' }}>Trend Radar</h2>
+        <div style={{ padding: '2rem', backgroundColor: 'var(--bg)', minHeight: '100vh' }}>
+            <h2 style={{ color: 'var(--text)', marginBottom: '2rem' }}>Trend Radar</h2>
 
             {/* View Mode Toggle */}
             {csvIsValid && uniqueColorTags.length > 0 && (
@@ -60,8 +60,8 @@ export default function TrendRadar() {
                             onClick={() => setViewMode('radar')}
                             style={{
                                 padding: '0.5rem 1rem',
-                                backgroundColor: viewMode === 'radar' ? '#4f46e5' : '#374151',
-                                color: '#f2f2f5',
+                                backgroundColor: viewMode === 'radar' ? 'var(--accent)' : 'var(--card)',
+                                color: 'var(--text)',
                                 border: 'none',
                                 borderRadius: '0.25rem',
                                 cursor: 'pointer'
@@ -73,8 +73,8 @@ export default function TrendRadar() {
                             onClick={() => setViewMode('palette')}
                             style={{
                                 padding: '0.5rem 1rem',
-                                backgroundColor: viewMode === 'palette' ? '#4f46e5' : '#374151',
-                                color: '#f2f2f5',
+                                backgroundColor: viewMode === 'palette' ? 'var(--accent)' : 'var(--card)',
+                                color: 'var(--text)',
                                 border: 'none',
                                 borderRadius: '0.25rem',
                                 cursor: 'pointer'
@@ -86,7 +86,7 @@ export default function TrendRadar() {
 
                     {/* Color Tag Filter */}
                     <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ color: '#f2f2f5', display: 'block', marginBottom: '0.5rem' }}>
+                        <label style={{ color: 'var(--text)', display: 'block', marginBottom: '0.5rem' }}>
                             Filter by Colors:
                         </label>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -102,8 +102,8 @@ export default function TrendRadar() {
                                     }}
                                     style={{
                                         padding: '0.25rem 0.5rem',
-                                        backgroundColor: selectedColorTags.includes(tag) ? '#10b981' : '#374151',
-                                        color: '#f2f2f5',
+                                        backgroundColor: selectedColorTags.includes(tag) ? 'var(--accent)' : 'var(--card)',
+                                        color: 'var(--text)',
                                         border: 'none',
                                         borderRadius: '0.25rem',
                                         cursor: 'pointer',
@@ -131,7 +131,7 @@ export default function TrendRadar() {
                             )}
                         </div>
                         {selectedColorTags.length > 0 && (
-                            <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#9ca3af' }}>
+                            <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--muted)' }}>
                                 Showing {filteredRows.length} of {csvRows.length} rows
                             </div>
                         )}
@@ -163,10 +163,10 @@ export default function TrendRadar() {
                                     onClick={() => handleDrillDown(key)}
                                     style={{
                                         padding: '1.5rem',
-                                        backgroundColor: '#14141a',
+                                        backgroundColor: 'var(--card)',
                                         borderRadius: '0.5rem',
                                         cursor: 'pointer',
-                                        border: '1px solid #333',
+                                        border: '1px solid var(--border)',
                                         transition: 'all 0.2s',
                                     }}
                                     onMouseOver={(e) => {
@@ -179,7 +179,7 @@ export default function TrendRadar() {
                                     }}
                                 >
                                     <h3 style={{
-                                        color: '#f2f2f5',
+                                        color: 'var(--text)',
                                         margin: '0 0 1rem 0',
                                         textTransform: 'capitalize'
                                     }}>
@@ -195,7 +195,7 @@ export default function TrendRadar() {
                                     <div style={{
                                         width: '100%',
                                         height: '8px',
-                                        backgroundColor: '#333',
+                                        backgroundColor: 'var(--border)',
                                         borderRadius: '4px',
                                         marginTop: '1rem',
                                         overflow: 'hidden'
@@ -213,16 +213,16 @@ export default function TrendRadar() {
                     ) : (
                         // Palette Heatmap View
                         <div style={{ marginBottom: '2rem' }}>
-                            <h3 style={{ color: '#f2f2f5', marginBottom: '1rem' }}>Color Palette Distribution</h3>
+                            <h3 style={{ color: 'var(--text)', marginBottom: '1rem' }}>Color Palette Distribution</h3>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
                                 {Object.entries(paletteGroups).map(([palette, tags]) => (
                                     <div
                                         key={palette}
                                         style={{
                                             padding: '1rem',
-                                            backgroundColor: '#14141a',
+                                            backgroundColor: 'var(--card)',
                                             borderRadius: '0.5rem',
-                                            border: '1px solid #333',
+                                            border: '1px solid var(--border)',
                                         }}
                                     >
                                         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>

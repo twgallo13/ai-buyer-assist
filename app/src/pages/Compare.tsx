@@ -46,8 +46,8 @@ export default function ComparePage() {
     return (
         <div style={{
             minHeight: '100vh',
-            backgroundColor: '#0b0b0f',
-            color: '#f2f2f5',
+            backgroundColor: 'var(--bg)',
+            color: 'var(--text)',
             padding: '20px',
             fontFamily: 'Arial, sans-serif'
         }}>
@@ -75,7 +75,7 @@ export default function ComparePage() {
                             border: '1px solid rgba(255,255,255,0.1)',
                             borderRadius: '8px',
                             padding: '16px',
-                            backgroundColor: '#14141a'
+                            backgroundColor: 'var(--card)'
                         }}>
                             <div style={{
                                 fontSize: '14px',
@@ -92,7 +92,7 @@ export default function ComparePage() {
                                     padding: '8px 12px',
                                     borderRadius: '4px',
                                     border: '1px solid rgba(255,255,255,0.2)',
-                                    color: '#f2f2f5',
+                                    color: 'var(--text)',
                                     fontSize: '14px'
                                 }}
                                 value={val}
@@ -187,7 +187,7 @@ export default function ComparePage() {
                         border: '1px solid rgba(255,255,255,0.1)',
                         borderRadius: '8px',
                         padding: '16px',
-                        backgroundColor: '#14141a'
+                        backgroundColor: 'var(--card)'
                     }}>
                         <h3 style={{ marginBottom: '16px', fontSize: '18px' }}>Side-by-side Comparison</h3>
                         <div style={{

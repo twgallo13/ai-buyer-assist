@@ -21,8 +21,8 @@ export default function SessionsPage() {
     return (
         <div style={{
             minHeight: '100vh',
-            backgroundColor: '#0b0b0f',
-            color: '#f2f2f5',
+            backgroundColor: 'var(--bg)',
+            color: 'var(--text)',
             padding: '20px',
             fontFamily: 'Arial, sans-serif'
         }}>
@@ -55,7 +55,7 @@ export default function SessionsPage() {
                                 border: '1px solid rgba(255,255,255,0.1)',
                                 borderRadius: '8px',
                                 padding: '16px',
-                                backgroundColor: '#14141a'
+                                backgroundColor: 'var(--card)'
                             }}
                         >
                             <div style={{
@@ -195,7 +195,7 @@ export default function SessionsPage() {
                                         padding: '4px 8px',
                                         backgroundColor: 'transparent',
                                         border: '1px solid rgba(255,255,255,0.2)',
-                                        color: '#f2f2f5',
+                                        color: 'var(--text)',
                                         borderRadius: '4px',
                                         cursor: 'pointer'
                                     }}
