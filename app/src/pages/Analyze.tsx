@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { AnalysisResult } from '../lib/types';
 import { saveSession } from '../lib/sessions';
 import { getSettings } from '../lib/settings';
+import { checkHealth, type HealthStatus } from '../lib/health';
 import DecisionSnapshot from '../components/analyze/DecisionSnapshot';
 import ExplainCard from '../components/analyze/ExplainCard';
 import SourcesList from '../components/analyze/SourcesList';
@@ -23,10 +24,31 @@ const Analyze: React.FC = () => {
     const [headlines, setHeadlines] = useState<TrendHeadline[]>([]);
     const [loadingHeadlines, setLoadingHeadlines] = useState(false);
 
+    // Health check state
+    const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
+
     // Load headlines on mount and when query changes
     useEffect(() => {
         fetchHeadlines(query || 'sneakers');
     }, [query]);
+
+    // Health check on mount
+    useEffect(() => {
+        const performHealthCheck = async () => {
+            const status = await checkHealth();
+            setHealthStatus(status);
+        };
+        performHealthCheck();
+    }, []);
+
+    // Health check on mount
+    useEffect(() => {
+        const performHealthCheck = async () => {
+            const status = await checkHealth();
+            setHealthStatus(status);
+        };
+        performHealthCheck();
+    }, []);
 
     const fetchHeadlines = async (searchQuery: string) => {
         setLoadingHeadlines(true);
@@ -117,143 +139,144 @@ const Analyze: React.FC = () => {
     const currentSettings = getSettings();
 
     return (
-        <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
-            <div className="max-w-7xl mx-auto p-4">
-                {/* 12-column responsive grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="container">
+            {/* Health Check Banner */}
+            {healthStatus && !healthStatus.ok && (
+                <div className="card mb-6 border-orange-200 bg-orange-50">
+                    <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 bg-orange-500 rounded-full flex-shrink-0"></div>
+                        <p className="text-sm text-orange-800">
+                            {healthStatus.message || 'Service temporarily unavailable'}
+                        </p>
+                    </div>
+                </div>
+            )}
 
-                    {/* Left Column - Main Content (span 8 on desktop) */}
-                    <div className="lg:col-span-8 space-y-6">
+            {healthStatus && healthStatus.ok && !healthStatus.apiKeyConfigured && (
+                <div className="card mb-6 border-red-200 bg-red-50">
+                    <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 bg-red-500 rounded-full flex-shrink-0"></div>
+                        <p className="text-sm text-red-800">
+                            No API key configured. Please check your settings.
+                        </p>
+                    </div>
+                </div>
+            )}
 
-                        {/* Hero Search Card */}
-                        <div className="p-6 rounded-lg" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}>
-                            <h1 className="text-2xl font-bold mb-4" style={{ color: 'var(--text)' }}>
-                                AI Buyer Assistant
-                            </h1>
+            {/* 12-column responsive grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-                            <div className="space-y-4">
-                                <textarea
-                                    value={query}
-                                    onChange={(e) => setQuery(e.target.value)}
-                                    placeholder="Enter product, brand, or trend query..."
-                                    className="w-full h-24 p-3 rounded border resize-none"
-                                    style={{
-                                        backgroundColor: 'var(--bg)',
-                                        color: 'var(--text)',
-                                        borderColor: 'var(--border)'
-                                    }}
-                                />
+                {/* Left Column - Main Content (span 8 on desktop) */}
+                <div className="lg:col-span-8 space-y-6">
 
-                                <div className="flex flex-col sm:flex-row gap-3">
-                                    <button
-                                        onClick={() => handleRun('quick')}
-                                        disabled={isLoading}
-                                        className="px-6 py-2 rounded font-medium"
-                                        style={{
-                                            backgroundColor: 'var(--muted)',
-                                            color: 'var(--card)',
-                                            opacity: isLoading ? 0.5 : 1
-                                        }}
-                                    >
-                                        {isLoading ? 'Running...' : 'Run Quick'}
-                                    </button>
+                    {/* Hero Search Card */}
+                    <div className="card">
+                        <h1 className="text-2xl font-bold mb-4">
+                            AI Buyer Assistant
+                        </h1>                        <div className="space-y-4">
+                            <textarea
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="Enter product, brand, or trend query..."
+                                className="w-full h-24 p-3 rounded border resize-none"
+                            />                            <div className="flex flex-col sm:flex-row gap-3">
+                                <button
+                                    onClick={() => handleRun('quick')}
+                                    disabled={isLoading}
+                                    className="btn-secondary"
+                                >
+                                    {isLoading ? 'Running...' : 'Run Quick'}
+                                </button>
 
-                                    <button
-                                        onClick={() => handleRun('deep')}
-                                        disabled={isLoading}
-                                        className="px-6 py-2 rounded font-medium"
-                                        style={{
-                                            backgroundColor: 'var(--accent)',
-                                            color: 'white',
-                                            opacity: isLoading ? 0.5 : 1
-                                        }}
-                                    >
-                                        {isLoading ? 'Running...' : 'Run Deep'}
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={() => handleRun('deep')}
+                                    disabled={isLoading}
+                                    className="btn-primary"
+                                >
+                                    {isLoading ? 'Running...' : 'Run Deep'}
+                                </button>
+                            </div>
 
-                                {/* Settings Pills */}
-                                <div className="flex flex-wrap gap-2 text-xs">
-                                    <span className="px-2 py-1 rounded" style={{ backgroundColor: 'var(--muted)', color: 'var(--card)' }}>
-                                        Model: {currentSettings.model}
-                                    </span>
-                                    <span className="px-2 py-1 rounded" style={{ backgroundColor: 'var(--muted)', color: 'var(--card)' }}>
-                                        Temp: {currentSettings.temperature}
-                                    </span>
-                                    <span className="px-2 py-1 rounded" style={{ backgroundColor: 'var(--muted)', color: 'var(--card)' }}>
-                                        Region: {currentSettings.regionPreset}
-                                    </span>
-                                </div>
+                            {/* Settings Pills */}
+                            <div className="flex flex-wrap gap-2 text-xs">
+                                <span className="badge">
+                                    Model: {currentSettings.model}
+                                </span>
+                                <span className="badge">
+                                    Temp: {currentSettings.temperature}
+                                </span>
+                                <span className="badge">
+                                    Region: {currentSettings.regionPreset}
+                                </span>
                             </div>
                         </div>
+                    </div>
 
-                        {/* Error Message */}
-                        {errorMessage && (
-                            <div className="p-4 rounded-lg" style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}>
-                                {errorMessage}
-                            </div>
-                        )}
+                    {/* Error Message */}
+                    {errorMessage && (
+                        <div className="p-4 rounded-lg" style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}>
+                            {errorMessage}
+                        </div>
+                    )}
 
-                        {/* Results Stack */}
-                        {result && (
-                            <div className="space-y-4">
-                                {/* Decision Snapshot */}
-                                <DecisionSnapshot result={result} isLoading={isLoading} />
+                    {/* Results Stack */}
+                    {result && (
+                        <div className="space-y-4">
+                            {/* Decision Snapshot */}
+                            <DecisionSnapshot result={result} isLoading={isLoading} />
 
-                                {/* Explain Card */}
-                                <ExplainCard result={result} />
+                            {/* Explain Card */}
+                            <ExplainCard result={result} />
 
-                                {/* Sources & Citations */}
-                                <SourcesList result={result} />
+                            {/* Sources & Citations */}
+                            <SourcesList result={result} />
+                        </div>
+                    )}
+                </div>
+
+                {/* Right Rail (span 4 on desktop) */}
+                <div className="lg:col-span-4 space-y-6">
+
+                    {/* AI Headlines */}
+                    <div className="card">
+                        <h3 className="font-semibold mb-4">
+                            AI Headlines
+                        </h3>
+
+                        {loadingHeadlines ? (
+                            <SkeletonHeadlines count={4} />
+                        ) : (
+                            <div className="space-y-3">
+                                {headlines.map((headline, index) => (
+                                    <div key={index} className="space-y-1">
+                                        <a
+                                            href={headline.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-sm font-medium hover:underline"
+                                        >
+                                            {headline.title}
+                                        </a>
+                                        <p className="text-xs text-muted">
+                                            {headline.source}
+                                        </p>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
 
-                    {/* Right Rail (span 4 on desktop) */}
-                    <div className="lg:col-span-4 space-y-6">
-
-                        {/* AI Headlines */}
-                        <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}>
-                            <h3 className="font-semibold mb-4" style={{ color: 'var(--text)' }}>
-                                AI Headlines
-                            </h3>
-
-                            {loadingHeadlines ? (
-                                <SkeletonHeadlines count={4} />
-                            ) : (
-                                <div className="space-y-3">
-                                    {headlines.map((headline, index) => (
-                                        <div key={index} className="space-y-1">
-                                            <a
-                                                href={headline.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-sm font-medium hover:underline"
-                                                style={{ color: 'var(--text)' }}
-                                            >
-                                                {headline.title}
-                                            </a>
-                                            <p className="text-xs" style={{ color: 'var(--muted)' }}>
-                                                {headline.source}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Tips */}
-                        <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}>
-                            <h3 className="font-semibold mb-4" style={{ color: 'var(--text)' }}>
-                                Tips
-                            </h3>
-                            <ul className="space-y-2 text-sm" style={{ color: 'var(--muted)' }}>
-                                <li>• Try specific brand + model queries</li>
-                                <li>• Include color or material details</li>
-                                <li>• Use "vs" to compare products</li>
-                                <li>• Deep mode provides reasoning</li>
-                            </ul>
-                        </div>
+                    {/* Tips */}
+                    <div className="card">
+                        <h3 className="font-semibold mb-4">
+                            Tips
+                        </h3>
+                        <ul className="space-y-2 text-sm text-muted">
+                            <li>• Try specific brand + model queries</li>
+                            <li>• Include color or material details</li>
+                            <li>• Use "vs" to compare products</li>
+                            <li>• Deep mode provides reasoning</li>
+                        </ul>
                     </div>
                 </div>
             </div>

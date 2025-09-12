@@ -11,6 +11,8 @@ export type Scenario = {
     marketingPush: number; collabFrequency: number; priceSensitivity: number; macroSentiment: number;
 };
 
+export type Theme = 'light' | 'dark' | 'system';
+
 export type Settings = {
     model: string;          // e.g., "gemini-1.5-flash"
     temperature: number;    // 0..1
@@ -19,10 +21,21 @@ export type Settings = {
     weights: Weights;
     scenario: Scenario;
     defaultMode: 'quick' | 'deep';
-    theme: 'light' | 'dark' | 'system';
+    theme: Theme;
     reasoningLevel: 'basic' | 'detailed' | 'comprehensive';
     regionPreset: 'global' | 'us' | 'eu' | 'asia';
 };
+
+// v2.0.6 — theme applier
+export function applyTheme(theme: Theme) {
+    const root = document.documentElement;
+    if (theme === 'system') {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        root.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+    } else {
+        root.setAttribute('data-theme', theme);
+    }
+}
 
 export type BuyerPresetKey = 'footwear' | 'apparel' | 'regional_us' | 'regional_eu';
 
@@ -99,9 +112,7 @@ export function updateSettings(patch: Partial<Settings>) {
 
     // Apply theme if it changed
     if (patch.theme) {
-        import('./theme').then(({ applyTheme }) => {
-            applyTheme(patch.theme!);
-        });
+        applyTheme(patch.theme);
     }
 
     subs.forEach(fn => fn(_settings));
