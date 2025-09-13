@@ -17,12 +17,12 @@ app.use(bodyParser.json({ limit: "1mb" }));
 // health
 app.get("/api/health", (_req, res) => {
   const keyPresent = !!(process.env.GEMINI_API_KEY && String(process.env.GEMINI_API_KEY).trim());
-  res.json({ ok: true, keyPresent, version: process.env.APP_VERSION || "v2.1.8e" });
+  res.json({ ok: true, keyPresent, version: process.env.APP_VERSION || "v2.1.9" });
 });
 
 // version
 app.get("/api/version", (_req, res) => {
-  res.json({ version: process.env.APP_VERSION || "v2.1.8e" });
+  res.json({ version: process.env.APP_VERSION || "v2.1.9" });
 });
 
 // deep (safe placeholder)

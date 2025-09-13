@@ -1,5 +1,29 @@
-import type { Thresholds, Weights, Scenario } from './settings';
 import type { Indices, Explain } from './types';
+
+// Legacy types for existing verdict logic
+type Weights = {
+    demand: number;
+    momentum: number;
+    saturation: number;
+    freshness: number;
+    styleFit: number;
+};
+
+type Scenario = {
+    marketingPush: number;
+    collabFrequency: number;
+    priceSensitivity: number;
+    macroSentiment: number;
+};
+
+type Thresholds = {
+    demandGo: number;
+    momentumGo: number;
+    freshnessGo: number;
+    demandHold: number;
+    momentumHold: number;
+    freshnessHold: number;
+};
 
 type Row = {
     velocityUnitsPerDay?: number; st28?: number; st90?: number;

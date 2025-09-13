@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getSettings } from '../lib/settings';
+import { getSettings, getLegacyWeights, getLegacyScenario, getLegacyThresholds } from '../lib/settings';
 import { computeQuickIndices, verdictFrom } from '../lib/verdict';
 import { getCsvRows, subscribeCsv, getCsvValidation } from '../lib/csv-store';
 
@@ -23,8 +23,8 @@ export default function BatchPage() {
         setRunning(true);
         const s = getSettings();
         const res = csvRows.map((r: any) => {
-            const idx = computeQuickIndices([r], s.weights, s.scenario);
-            const v = verdictFrom(idx, s.thresholds);
+            const idx = computeQuickIndices([r], getLegacyWeights(s), getLegacyScenario(s));
+            const v = verdictFrom(idx, getLegacyThresholds(s));
             return { sku: r.SKU || r.sku, collection: r.collection || r.Collection, verdict: v, ...idx, mode: 'quick' };
         });
         setOut(res); setRunning(false);

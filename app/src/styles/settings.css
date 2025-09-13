@@ -2,28 +2,60 @@
 .settings-page {
     max-width: 1240px;
     margin: 0 auto;
-    padding: 24px;
+    padding: 0;
     color: var(--text);
 }
 
-/* Title */
-.settings-title {
-    font-size: 28px;
-    font-weight: 700;
-    margin: 8px 0 20px;
+/* Sticky header */
+.settings-header {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+}
+
+.settings-header h1 {
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.settings-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* Content area */
+.settings-content {
+    padding: 24px;
 }
 
 /* Grid */
 .settings-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
+    grid-template-columns: 1fr 300px;
+    gap: 24px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
     .settings-grid {
         grid-template-columns: 1fr;
     }
+
+    .settings-sidebar {
+        order: -1;
+    }
+}
+
+.settings-main {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
 /* Card */
@@ -45,9 +77,10 @@
 
 /* Label + help text */
 .form-row {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 6px;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
 }
 
 .form-label {
@@ -85,6 +118,119 @@
 .form-range {
     width: 100%;
     margin: 4px 0;
+}
+
+/* Threshold inputs */
+.threshold-inputs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.threshold-input {
+    width: 60px;
+    text-align: center;
+}
+
+/* Presets grid */
+.presets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 8px;
+}
+
+.btn-preset {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-preset:hover {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+/* Health sidebar */
+.settings-sidebar {
+    display: flex;
+    flex-direction: column;
+}
+
+.health-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.health-item:last-child {
+    border-bottom: none;
+}
+
+.health-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.health-chip {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.health-chip.health-good {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+}
+
+.health-chip.health-warn {
+    background: rgba(251, 191, 36, 0.1);
+    color: #fbbf24;
+}
+
+.health-text {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* Button styles */
+.btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-primary:hover {
+    opacity: 0.9;
+}
+
+.btn-secondary {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+    background: var(--bg);
 }
 
 /* Checkbox styling */

@@ -82,11 +82,25 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
 
         try {
             if (mode === 'quick') {
-                // Quick analysis - minimal mock
+                // Quick analysis - minimal mock with basic verdict logic
+                const indices = { demand: 58, momentum: 55, saturation: 44, freshness: 53, styleFit: 61 };
+                const avgScore = Object.values(indices).reduce((a, b) => a + b, 0) / Object.values(indices).length;
+                const verdict = avgScore >= 60 ? 'Go' : avgScore >= 45 ? 'Hold' : 'Skip';
+                const confidence = Math.round(50 + (avgScore - 50) * 0.8); // Scale confidence based on score
+                
                 setResult({
+                    verdict,
+                    confidence: Math.max(20, Math.min(95, confidence)),
                     summary: 'Quick read from public trend signals.',
-                    indices: { demand: 58, momentum: 55, saturation: 44, freshness: 53, styleFit: 61 },
-                    sources: ['quick']
+                    indices,
+                    sources: ['quick'],
+                    explain: {
+                        factors: [
+                            { impact: avgScore >= 55 ? '+' : '-', label: 'Market Demand', note: `Average performance at ${avgScore.toFixed(0)}%` },
+                            { impact: indices.saturation <= 50 ? '+' : '-', label: 'Market Saturation', note: `${indices.saturation}% market saturation` },
+                            { impact: '~', label: 'Quick Analysis', note: 'Limited data sources - use Deep analysis for comprehensive insights' }
+                        ]
+                    }
                 });
             } else {
                 // Deep analysis
@@ -208,7 +222,30 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                     {!loading && result && (
                         <div style={{ display: 'grid', gap: 20 }}>
                             {/* Decision Snapshot */}
-                            <div><strong>{result.summary || 'Summary unavailable'}</strong></div>
+                            <div>
+                                {result.verdict && (
+                                    <div style={{ 
+                                        display: 'inline-block',
+                                        background: result.verdict === 'Go' ? '#10b981' : result.verdict === 'Hold' ? '#f59e0b' : '#ef4444',
+                                        color: 'white',
+                                        padding: '4px 12px',
+                                        borderRadius: '16px',
+                                        fontSize: '12px',
+                                        fontWeight: '600',
+                                        textTransform: 'uppercase',
+                                        marginBottom: '8px',
+                                        marginRight: '8px'
+                                    }}>
+                                        {result.verdict}
+                                    </div>
+                                )}
+                                {result.confidence && (
+                                    <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                        {result.confidence}% confidence
+                                    </span>
+                                )}
+                                <div><strong>{result.summary || 'Summary unavailable'}</strong></div>
+                            </div>
 
                             {/* KPI Tiles */}
                             <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
