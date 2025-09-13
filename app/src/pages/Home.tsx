@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import KpiTile from '../components/KpiTile';
-import KpiTiles from '../components/home/KpiTiles';
 import ImagesStrip from '../components/home/ImagesStrip';
 import { getApiHealth } from '../lib/env-health';
 import { getSettings, subscribeSettings, applyTheme, type Settings } from '../lib/settings';
+import { getKpis, type Kpis } from '../lib/kpis';
 
 interface HomeProps {
     navigate: (path: string) => void;
@@ -16,11 +16,15 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
     const [apiHealth, setApiHealth] = useState<{ ok: boolean; keyPresent: boolean } | null>(null);
     const [settings, setSettings] = useState<Settings>(getSettings());
 
+    // KPI state
+    const [kpis, setKpis] = useState<Kpis>({});
+
     // Analysis state
     const [query, setQuery] = useState(initialQuery);
+    const [lastQuery, setLastQuery] = useState<string>('');
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<any>(null);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<{ message: string; canRetry: boolean } | null>(null);
     const hasAutoRun = useRef(false);
 
     useEffect(() => { applyTheme(settings.theme); }, [settings.theme]);
@@ -35,6 +39,11 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
         // Check API health on mount
         getApiHealth().then(health => {
             setApiHealth(health);
+        });
+
+        // Load KPIs on mount
+        getKpis().then(kpiData => {
+            setKpis(kpiData);
         });
 
         // Try to fetch headlines from /api/trends
@@ -59,15 +68,17 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
         }
     }, [initialQuery]);
 
-    const runAnalysis = async (mode: 'quick' | 'deep') => {
+    const runAnalysis = async (mode: 'quick' | 'deep', queryToAnalyze?: string) => {
+        const targetQuery = queryToAnalyze || query;
         // Silently no-op if input is blank or empty
-        if (!query || !query.trim()) {
+        if (!targetQuery || !targetQuery.trim()) {
             return;
         }
 
         setLoading(true);
         setError(null);
         setResult(null);
+        setLastQuery(targetQuery);
 
         try {
             if (mode === 'quick') {
@@ -80,7 +91,7 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
             } else {
                 // Deep analysis
                 const body = {
-                    query: query,
+                    query: targetQuery,
                     model: settings.model,
                     temperature: settings.temperature,
                     reasoningLevel: settings.reasoningLevel,
@@ -95,9 +106,30 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                 setResult(data);
             }
         } catch (e: any) {
-            setError('Analysis failed. Please try again.');
+            console.error('Analysis failed:', e);
+            let errorMessage = 'Analysis failed. Please try again.';
+            let canRetry = true;
+
+            if (e.message?.includes('fetch')) {
+                errorMessage = 'Network error. Check your connection and try again.';
+            } else if (e.message?.includes('timeout')) {
+                errorMessage = 'Request timed out. Please try again.';
+            } else if (e.status === 429) {
+                errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+            } else if (e.status === 401) {
+                errorMessage = 'API authentication failed. Please check your settings.';
+                canRetry = false;
+            }
+
+            setError({ message: errorMessage, canRetry });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const retryLastAnalysis = () => {
+        if (lastQuery) {
+            runAnalysis('deep', lastQuery);
         }
     };
 
@@ -111,15 +143,12 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                             <span className="badge">API connected</span>)}
                     <div className="hr" />
 
-                    {/* Live KPI Tiles */}
-                    <div style={{ marginBottom: 16 }}>
-                        <KpiTiles
-                            availability={null}
-                            markdownRisk={null}
-                            velocity={null}
-                            diversification={null}
-                            loading={false}
-                        />
+                    {/* KPI Row */}
+                    <div className="kpi-row">
+                        <KpiTile label="Diversification" value={kpis.diversification} suffix="%" goodHigh />
+                        <KpiTile label="Nike Dependency" value={kpis.dependency} suffix="%" goodHigh={false} />
+                        <KpiTile label="Markdown Trend" value={kpis.markdownPct} suffix="%" goodHigh={false} />
+                        <KpiTile label="Availability" value={kpis.availability} suffix="%" goodHigh />
                     </div>
 
                     <div style={{ display: 'grid', gap: 12 }}>
@@ -141,7 +170,39 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
 
                 <div className="card">
                     <h3>Results</h3>
-                    {error && <div className="badge" style={{ borderColor: 'crimson', color: 'crimson' }}> {error} </div>}
+                    {error && (
+                        <div style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            color: '#ef4444',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            marginBottom: '16px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <span>{error.message}</span>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                {error.canRetry && (
+                                    <button
+                                        className="btn"
+                                        style={{ fontSize: '12px', padding: '4px 8px' }}
+                                        onClick={retryLastAnalysis}
+                                    >
+                                        Retry
+                                    </button>
+                                )}
+                                <button
+                                    className="btn"
+                                    style={{ fontSize: '12px', padding: '4px 8px' }}
+                                    onClick={() => window.location.href = '/settings'}
+                                >
+                                    Open Settings
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     {loading && <div className="badge">Analyzing…</div>}
                     {!loading && !error && !result && <div className="badge">No results yet. Try "Nike Dunk Low VS Jordan 1 for Fall denim".</div>}
                     {!loading && result && (
@@ -153,33 +214,33 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                             <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
                                 <KpiTile
                                     label="Demand"
-                                    score={result.indices?.demand ?? 0}
-                                    tone={result.indices?.demand >= 70 ? 'good' : result.indices?.demand >= 40 ? 'warn' : 'risk'}
-                                    help="Market demand strength - higher scores indicate stronger consumer interest"
+                                    value={result.indices?.demand ?? 0}
+                                    suffix="%"
+                                    goodHigh={true}
                                 />
                                 <KpiTile
                                     label="Momentum"
-                                    score={result.indices?.momentum ?? 0}
-                                    tone={result.indices?.momentum >= 70 ? 'good' : result.indices?.momentum >= 40 ? 'warn' : 'risk'}
-                                    help="Trend velocity - measures how quickly interest is growing or declining"
+                                    value={result.indices?.momentum ?? 0}
+                                    suffix="%"
+                                    goodHigh={true}
                                 />
                                 <KpiTile
                                     label="Saturation"
-                                    score={result.indices?.saturation ?? 0}
-                                    tone={result.indices?.saturation <= 40 ? 'good' : result.indices?.saturation <= 70 ? 'warn' : 'risk'}
-                                    help="Market saturation level - lower scores indicate less competition"
+                                    value={result.indices?.saturation ?? 0}
+                                    suffix="%"
+                                    goodHigh={false}
                                 />
                                 <KpiTile
                                     label="Freshness"
-                                    score={result.indices?.freshness ?? 0}
-                                    tone={result.indices?.freshness >= 70 ? 'good' : result.indices?.freshness >= 40 ? 'warn' : 'risk'}
-                                    help="Trend freshness - newer trends score higher"
+                                    value={result.indices?.freshness ?? 0}
+                                    suffix="%"
+                                    goodHigh={true}
                                 />
                                 <KpiTile
                                     label="Style Fit"
-                                    score={result.indices?.styleFit ?? 0}
-                                    tone={result.indices?.styleFit >= 70 ? 'good' : result.indices?.styleFit >= 40 ? 'warn' : 'risk'}
-                                    help="Style alignment with current trends and consumer preferences"
+                                    value={result.indices?.styleFit ?? 0}
+                                    suffix="%"
+                                    goodHigh={true}
                                 />
                             </div>
 

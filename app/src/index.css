@@ -83,3 +83,91 @@ select {
   border-radius: 10px;
   padding: 10px 12px;
 }
+
+/* KPI Tiles - v2.1.8 */
+.kpi-tile {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.kpi-tile:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.kpi-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.kpi-value {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.kpi-tile.pos .kpi-value {
+  color: #10b981;
+  /* green */
+}
+
+.kpi-tile.warn .kpi-value {
+  color: #f59e0b;
+  /* amber */
+}
+
+.kpi-tile.muted .kpi-value {
+  color: var(--muted);
+}
+
+/* Result Images Strip - v2.1.8 */
+.result-images {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0;
+  scroll-behavior: smooth;
+}
+
+.result-images::-webkit-scrollbar {
+  height: 4px;
+}
+
+.result-images::-webkit-scrollbar-track {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.result-images::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 2px;
+}
+
+.result-image {
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  border: 1px solid var(--border);
+}
+
+.result-image:hover {
+  transform: scale(1.05);
+}
+
+.result-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

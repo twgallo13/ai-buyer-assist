@@ -1,121 +1,125 @@
 /* Page frame */
 .settings-page {
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: 24px;
-  color: var(--text);
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 24px;
+    color: var(--text);
 }
 
 /* Title */
 .settings-title {
-  font-size: 28px;
-  font-weight: 700;
-  margin: 8px 0 20px;
+    font-size: 28px;
+    font-weight: 700;
+    margin: 8px 0 20px;
 }
 
 /* Grid */
 .settings-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
 }
 
 @media (max-width: 900px) {
-  .settings-grid { grid-template-columns: 1fr; }
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Card */
 .settings-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
-  padding: 16px 18px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    padding: 16px 18px;
 }
 
 /* Card header */
 .settings-card h3 {
-  font-size: 15px;
-  font-weight: 700;
-  margin: 2px 0 12px;
-  color: var(--text);
+    font-size: 15px;
+    font-weight: 700;
+    margin: 2px 0 12px;
+    color: var(--text);
 }
 
 /* Label + help text */
 .form-row {
-  display: grid;
-  gap: 6px;
-  margin-bottom: 14px;
+    display: grid;
+    gap: 6px;
+    margin-bottom: 14px;
 }
 
 .form-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
 }
 
 .form-help {
-  font-size: 11px;
-  color: var(--muted);
-  line-height: 1.4;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
 }
 
 /* Input styling */
-.form-input, .form-select {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 13px;
+.form-input,
+.form-select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
 }
 
-.form-input:focus, .form-select:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+.form-input:focus,
+.form-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 /* Range slider */
 .form-range {
-  width: 100%;
-  margin: 4px 0;
+    width: 100%;
+    margin: 4px 0;
 }
 
 /* Checkbox styling */
 .form-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
 }
 
 .form-checkbox input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent);
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
 }
 
 .form-checkbox label {
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
+    font-size: 13px;
+    color: var(--text);
+    cursor: pointer;
 }
 
 /* Preview badges */
 .preview-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
 }
 
 .preview-badge {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 11px;
-  padding: 4px 8px;
-  border-radius: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 12px;
 }

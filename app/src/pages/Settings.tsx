@@ -38,7 +38,7 @@ export default function SettingsPage() {
         {/* AI Model & Behavior */}
         <div className="settings-card">
           <h3>AI Model & Behavior</h3>
-          
+
           <div className="form-row">
             <label className="form-label">Model</label>
             <select className="form-select" value={s.model} onChange={(e) => update('model', e.target.value as Settings['model'])}>
@@ -72,7 +72,7 @@ export default function SettingsPage() {
         {/* Regional & Theme */}
         <div className="settings-card">
           <h3>Regional & Theme</h3>
-          
+
           <div className="form-row">
             <label className="form-label">Regional Preset</label>
             <select className="form-select" value={s.regionPreset} onChange={(e) => update('regionPreset', e.target.value as RegionPreset)}>
@@ -98,7 +98,7 @@ export default function SettingsPage() {
         {/* Scoring Weights */}
         <div className="settings-card">
           <h3>Scoring Weights</h3>
-          
+
           <div className="form-row">
             <label className="form-label">Demand</label>
             <input className="form-range" type="range" min={0.1} max={1} step={0.1} value={s.weights.demand}
@@ -153,7 +153,7 @@ export default function SettingsPage() {
         {/* Verdict Thresholds */}
         <div className="settings-card">
           <h3>Verdict Thresholds</h3>
-          
+
           <div className="form-row">
             <label className="form-label">Demand Go</label>
             <input className="form-range" type="range" min={50} max={90} step={5} value={s.thresholds.demandGo}
@@ -218,7 +218,7 @@ export default function SettingsPage() {
         {/* Scenario Tweaks - spans 2 columns */}
         <div className="settings-card" style={{ gridColumn: 'span 2' }}>
           <h3>Scenario Tweaks</h3>
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
             <div className="form-row">
               <label className="form-label">Marketing Push</label>
@@ -257,7 +257,7 @@ export default function SettingsPage() {
               <div className="preview-badges">
                 <span className="preview-badge">{s.scenario.macroSentiment.toFixed(1)}</span>
               </div>
-                            <div className="form-help">Overall economic and consumer sentiment adjustment</div>
+              <div className="form-help">Overall economic and consumer sentiment adjustment</div>
             </div>
           </div>
         </div>

@@ -29,31 +29,19 @@ export default function ImagesStrip({ images, onImageClick }: Props) {
     return (
         <div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Images</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div className="result-images">
                 {normalizedImages.map((img, i) => (
-                    <img
+                    <div
                         key={i}
-                        src={img.src}
-                        alt={img.alt}
+                        className="result-image"
                         onClick={() => onImageClick?.(img.src)}
-                        style={{
-                            maxWidth: 100,
-                            maxHeight: 100,
-                            borderRadius: 4,
-                            border: '1px solid var(--border)',
-                            cursor: onImageClick ? 'pointer' : 'default',
-                            transition: 'opacity 0.2s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                            if (onImageClick) {
-                                e.currentTarget.style.opacity = '0.8';
-                            }
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.opacity = '1';
-                        }}
-                        loading="lazy"
-                    />
+                    >
+                        <img
+                            src={img.src}
+                            alt={img.alt}
+                            loading="lazy"
+                        />
+                    </div>
                 ))}
             </div>
         </div>

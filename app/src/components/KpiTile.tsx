@@ -1,94 +1,46 @@
-import React from 'react';
+type Props = {
+  label: string;
 
-interface KpiTileProps {
-    label: string;
-    score: number;
-    help?: string;
-    tone?: 'good' | 'warn' | 'risk';
-}
+  /** New API used by the new dashboard */
+  value?: number;
+  suffix?: string;
 
-const KpiTile: React.FC<KpiTileProps> = ({ label, score, help, tone = 'good' }) => {
-    const getToneStyles = () => {
-        switch (tone) {
-            case 'good':
-                return {
-                    borderColor: '#22c55e',
-                    topBarColor: '#22c55e'
-                };
-            case 'warn':
-                return {
-                    borderColor: '#eab308',
-                    topBarColor: '#eab308'
-                };
-            case 'risk':
-                return {
-                    borderColor: '#ef4444',
-                    topBarColor: '#ef4444'
-                };
-            default:
-                return {
-                    borderColor: '#6b7280',
-                    topBarColor: '#6b7280'
-                };
-        }
-    };
+  /** When true, higher numbers are good (default). If false, lower is good. */
+  goodHigh?: boolean;
 
-    const { borderColor, topBarColor } = getToneStyles();
-
-    return (
-        <div
-            title={help}
-            style={{
-                backgroundColor: '#1a1a1a',
-                border: `1px solid ${borderColor}`,
-                borderRadius: '8px',
-                padding: '16px',
-                textAlign: 'center',
-                position: 'relative',
-                minWidth: '120px',
-                cursor: help ? 'help' : 'default'
-            }}
-        >
-            {/* Top accent bar */}
-            <div
-                style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: '3px',
-                    backgroundColor: topBarColor,
-                    borderRadius: '8px 8px 0 0'
-                }}
-            />
-
-            {/* Score */}
-            <div
-                style={{
-                    fontSize: '32px',
-                    fontWeight: 'bold',
-                    color: '#ffffff',
-                    marginBottom: '8px',
-                    lineHeight: 1
-                }}
-            >
-                {Math.round(score)}
-            </div>
-
-            {/* Label */}
-            <div
-                style={{
-                    fontSize: '12px',
-                    color: '#9ca3af',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    fontWeight: '500'
-                }}
-            >
-                {label}
-            </div>
-        </div>
-    );
+  /** Back-compat with older Analyze/Results code */
+  score?: number; // old prop name (maps to value)
+  tone?: string;  // ignored here (styling handled locally)
+  help?: string;  // ignored here (tooltips handled elsewhere)
 };
 
-export default KpiTile;
+export default function KpiTile({
+  label,
+  value,
+  suffix = "",
+  goodHigh = true,
+  // back-compat:
+  score,
+}: Props) {
+  // Prefer new `value`; fall back to old `score`
+  const raw = value ?? score;
+  const isEmpty = raw === undefined || Number.isNaN(Number(raw));
+
+  const numeric = isEmpty ? undefined : Math.round(Number(raw));
+  // Simple tone; refine thresholds later if desired
+  const tone = isEmpty
+    ? "muted"
+    : goodHigh
+      ? (Number(raw) >= 60 ? "pos" : "warn")
+      : (Number(raw) <= 40 ? "pos" : "warn");
+
+  return (
+    <div className={`kpi-tile ${tone}`}>
+      <div className="kpi-label">{label}</div>
+      <div className="kpi-value">
+        {isEmpty ? "—" : numeric}
+        {isEmpty ? "" : suffix}
+      </div>
+    </div>
+  );
+}
