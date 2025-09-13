@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getSettings, updateSettings, applyTheme, applyPreset, PRESETS, type Settings, type Theme, type RegionPreset, type KpiWeights, type VerdictThresholds } from '../lib/settings';
+import { getSettings, updateSettings, applyTheme, applyPreset, PRESETS, HELP_TEXT, VERSION, type Settings, type Theme, type RegionPreset, type KpiWeights, type VerdictThresholds } from '../lib/settings';
 import '../styles/settings.css';
 
 export default function SettingsPage() {
@@ -66,6 +66,7 @@ export default function SettingsPage() {
                   <option value="dark">Dark</option>
                   <option value="system">System</option>
                 </select>
+                <div className="form-help">{HELP_TEXT.theme}</div>
               </div>
             </div>
 
@@ -78,6 +79,7 @@ export default function SettingsPage() {
                   <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
                   <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
                 </select>
+                <div className="form-help">{HELP_TEXT.model}</div>
               </div>
               <div className="form-row">
                 <label className="form-label">Temperature: {s.temperature}</label>
@@ -90,6 +92,7 @@ export default function SettingsPage() {
                   value={s.temperature}
                   onChange={(e) => update('temperature', Number(e.target.value))}
                 />
+                <div className="form-help">{HELP_TEXT.temperature}</div>
               </div>
               <div className="form-row">
                 <label className="form-label">Reasoning Level</label>
@@ -98,6 +101,7 @@ export default function SettingsPage() {
                   <option value="detailed">Detailed</option>
                   <option value="comprehensive">Comprehensive</option>
                 </select>
+                <div className="form-help">{HELP_TEXT.reasoningLevel}</div>
               </div>
               <div className="form-row">
                 <label className="form-label">Region Preset</label>
@@ -106,6 +110,7 @@ export default function SettingsPage() {
                   <option value="us">US</option>
                   <option value="eu">EU</option>
                 </select>
+                <div className="form-help">{HELP_TEXT.regionPreset}</div>
               </div>
             </div>
 
@@ -126,6 +131,7 @@ export default function SettingsPage() {
                     value={value}
                     onChange={(e) => updateKpiWeight(key as keyof KpiWeights, Number(e.target.value))}
                   />
+                  <div className="form-help">{HELP_TEXT.kpiWeights[key as keyof typeof HELP_TEXT.kpiWeights]}</div>
                 </div>
               ))}
             </div>
@@ -133,6 +139,7 @@ export default function SettingsPage() {
             {/* Verdict Thresholds Section */}
             <div className="settings-card">
               <h3>Verdict Thresholds</h3>
+              <div className="form-help" style={{ marginBottom: '16px' }}>{HELP_TEXT.verdictThresholds}</div>
               {Object.entries(s.verdictThresholds).map(([category, [min, max]]) => (
                 <div key={category} className="form-row">
                   <label className="form-label">
@@ -166,13 +173,15 @@ export default function SettingsPage() {
               <h3>Presets</h3>
               <div className="presets-grid">
                 {Object.keys(PRESETS).map((presetName) => (
-                  <button
-                    key={presetName}
-                    className="btn btn-preset"
-                    onClick={() => handlePresetApply(presetName as keyof typeof PRESETS)}
-                  >
-                    {presetName}
-                  </button>
+                  <div key={presetName} className="preset-item">
+                    <button
+                      className="btn btn-preset"
+                      onClick={() => handlePresetApply(presetName as keyof typeof PRESETS)}
+                    >
+                      {presetName}
+                    </button>
+                    <div className="form-help">{HELP_TEXT.presets[presetName as keyof typeof HELP_TEXT.presets]}</div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -197,6 +206,11 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+      </div>
+      
+      {/* Version Footer */}
+      <div className="settings-footer">
+        <span className="version-text">Version {VERSION}</span>
       </div>
     </div>
   );

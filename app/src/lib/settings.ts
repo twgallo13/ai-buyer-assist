@@ -2,6 +2,35 @@ export type Theme = 'light' | 'dark' | 'system';
 export type ModelKey = 'gemini-1.5-flash' | 'gemini-1.5-pro';
 export type RegionPreset = 'global' | 'us' | 'eu' | 'apac';
 
+// Help text constants for Settings UI
+export const HELP_TEXT = {
+    theme: "Affects background and cards across the app.",
+    model: "Flash is faster and cheaper, Pro is more accurate for complex analysis.",
+    temperature: "Lower values (0.1) are more focused, higher values (0.9) are more creative.",
+    reasoningLevel: "Basic for speed, Comprehensive for detailed explanations and citations.",
+    regionPreset: "Adjusts market data sources and cultural context for analysis.",
+    
+    kpiWeights: {
+        availability: "Product stock levels and distribution reach across channels.",
+        markdownRisk: "Likelihood of requiring price reductions to clear inventory.",
+        diversification: "How this product spreads risk across your portfolio mix.",
+        velocity: "Speed of inventory turnover and sales momentum.",
+        resalePremium: "Potential for secondary market value and resale demand.",
+        trendAlignment: "Alignment with current fashion trends and consumer preferences.",
+        competitorPresence: "Level of competitive activity and market saturation."
+    },
+    
+    verdictThresholds: "Score bands that determine buy recommendations: PASS (1-3) = avoid, TEST (4-6) = small order, BUY (7-8) = confident purchase, AGGRESSIVE (9-10) = maximum allocation.",
+    
+    presets: {
+        "Nike Portal Night Run": "Optimized for performance footwear with high velocity focus.",
+        "Apparel Diversification": "Balanced approach for expanding clothing categories.",
+        "Markdown Audit": "Conservative settings to minimize clearance risk."
+    }
+};
+
+export const VERSION = 'v2.1.9e';
+
 export type KpiWeights = {
     availability: number;      // 0-100
     markdownRisk: number;     // 0-100
