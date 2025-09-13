@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ThemeToggle from '../ThemeToggle';
-import { getApiVersion } from '../../lib/env-health';
 
 interface HeaderProps {
     currentPage: string;
@@ -8,14 +7,43 @@ interface HeaderProps {
     usage?: { deepCalls: number; budget: number } | null;
 }
 
+const FALLBACK_VERSION = 'v2.1.6';
+
 const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, usage }) => {
-    const [version, setVersion] = useState<string>('v2.1.1');
+    const [version, setVersion] = useState<string>(FALLBACK_VERSION);
+    const errorLoggedRef = useRef(false);
 
     useEffect(() => {
-        // Try to fetch version from API, fallback to v2.1.1
-        getApiVersion().then(v => {
-            setVersion(v);
-        });
+        // Try to fetch version from API with hardened error handling
+        const fetchVersion = async () => {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+                const response = await fetch('/api/version', {
+                    signal: controller.signal,
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                const apiVersion = data.version ?? FALLBACK_VERSION;
+                setVersion(apiVersion);
+            } catch (error) {
+                // Only log the error once to avoid console spam
+                if (!errorLoggedRef.current) {
+                    console.warn('Version fetch failed, using fallback:', error);
+                    errorLoggedRef.current = true;
+                }
+                setVersion(FALLBACK_VERSION);
+            }
+        };
+
+        fetchVersion();
     }, []);
 
     const navItems = [

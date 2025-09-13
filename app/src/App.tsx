@@ -8,6 +8,7 @@ import SettingsPage from './pages/Settings'
 import SessionsPage from './pages/Sessions'
 import UsagePage from './pages/Usage'
 import Header from './components/layout/Header'
+import { getSettings, applyTheme } from './lib/settings'
 import './styles/theme.css'
 
 function App() {
@@ -44,11 +45,13 @@ function App() {
 
     window.addEventListener('popstate', handlePopState);
 
-    // Initialize theme from settings
-    import('./lib/settings').then(({ getSettings, applyTheme }) => {
+    // Initialize theme from settings synchronously to prevent flash
+    try {
       const { theme } = getSettings();
       applyTheme(theme);
-    });
+    } catch (error) {
+      console.warn('Failed to initialize theme:', error);
+    }
 
     // Poll usage every 20 seconds
     const fetchUsage = async () => {

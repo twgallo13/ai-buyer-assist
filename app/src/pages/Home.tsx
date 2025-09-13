@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import VerdictCard from '../components/card/VerdictCard';
-import Banner from '../components/Banner';
 import KpiTile from '../components/KpiTile';
-import { getApiHealth, getApiVersion } from '../lib/env-health';
+import { getApiHealth } from '../lib/env-health';
 import { getSettings, subscribeSettings, applyTheme, type Settings } from '../lib/settings';
 
 interface HomeProps {
@@ -10,11 +8,10 @@ interface HomeProps {
     initialQuery?: string;
 }
 
-const Home: React.FC<HomeProps> = ({ navigate, initialQuery = '' }) => {
+const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) => {
     const [headlines, setHeadlines] = useState<Array<{ title: string; source: string }>>([]);
     const [headlinesLoading, setHeadlinesLoading] = useState(true);
     const [apiHealth, setApiHealth] = useState<{ ok: boolean; keyPresent: boolean } | null>(null);
-    const [version, setVersion] = useState<string>('v2.1.0');
     const [settings, setSettings] = useState<Settings>(getSettings());
 
     // Analysis state
@@ -38,11 +35,6 @@ const Home: React.FC<HomeProps> = ({ navigate, initialQuery = '' }) => {
             setApiHealth(health);
         });
 
-        // Fetch version (non-blocking)
-        getApiVersion().then(v => {
-            setVersion(v);
-        });
-
         // Try to fetch headlines from /api/trends
         fetch('/api/trends?limit=5')
             .then(res => res.json())
@@ -57,16 +49,19 @@ const Home: React.FC<HomeProps> = ({ navigate, initialQuery = '' }) => {
             });
     }, []);
 
-    // Auto-run Quick analysis if query param exists and hasn't run yet
+    // Auto-run Quick analysis if query param exists and hasn't run yet (Quick only)
     useEffect(() => {
-        if (initialQuery && !hasAutoRun.current && !loading && !result) {
+        if (initialQuery && initialQuery.trim() && !hasAutoRun.current && !loading && !result) {
             hasAutoRun.current = true;
             runAnalysis('quick');
         }
     }, [initialQuery]);
 
     const runAnalysis = async (mode: 'quick' | 'deep') => {
-        if (!query.trim()) return;
+        // Silently no-op if input is blank or empty
+        if (!query || !query.trim()) {
+            return;
+        }
 
         setLoading(true);
         setError(null);
@@ -103,28 +98,6 @@ const Home: React.FC<HomeProps> = ({ navigate, initialQuery = '' }) => {
             setLoading(false);
         }
     };
-
-    // Sample verdict cards data
-    const sampleVerdicts = [
-        {
-            title: 'Nike Air Force 1',
-            verdict: 'BUY' as const,
-            kpis: { demand: 85, competition: 72, momentum: 90, freshness: 45 },
-            confidence: 87
-        },
-        {
-            title: 'Sustainable Denim',
-            verdict: 'TEST' as const,
-            kpis: { demand: 65, competition: 40, momentum: 78, freshness: 92 },
-            confidence: 72
-        }
-    ];
-
-    const aiHighlights = [
-        'Market momentum in athletic wear up 23% this week',
-        'Sustainable materials trending across 5 categories',
-        'Holiday shopping patterns suggest early inventory needs'
-    ];
 
     return (
         <div className="app-container grid grid-12">
@@ -210,12 +183,29 @@ const Home: React.FC<HomeProps> = ({ navigate, initialQuery = '' }) => {
                                 </div>
                             )}
 
+                            {/* Images (only show if present) */}
+                            {result.images && result.images.length > 0 && (
+                                <div>
+                                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>Images</div>
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                        {result.images.map((img: any, i: number) => (
+                                            <img
+                                                key={i}
+                                                src={img.url || img}
+                                                alt={img.alt || `Result image ${i + 1}`}
+                                                style={{ maxWidth: 100, maxHeight: 100, borderRadius: 4, border: '1px solid var(--border)' }}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Sources & Citations */}
                             <div>
                                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>Sources</div>
                                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                    {(result.sources || []).map((s: string) => (
-                                        <span key={s} className="badge">
+                                    {(result.sources || []).map((s: string, i: number) => (
+                                        <span key={`${s}-${i}`} className="badge">
                                             {s === 'trends' ? 'External Signals' : s}
                                         </span>
                                     ))}
@@ -230,16 +220,18 @@ const Home: React.FC<HomeProps> = ({ navigate, initialQuery = '' }) => {
             <div className="col-4">
                 <div className="card" style={{ marginBottom: 16 }}>
                     <h3>AI Headlines</h3>
-                    {!headlines && <div className="badge">Loading…</div>}
-                    {headlines && headlines.length === 0 && <div className="badge">No headlines right now.</div>}
-                    <ul style={{ margin: 0, paddingLeft: 16 }}>
-                        {headlines?.map((h, i) => (
-                            <li key={i} style={{ marginBottom: 8 }}>
-                                <span style={{ color: 'var(--text)' }}>{h.title}</span>
-                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{h.source}</div>
-                            </li>
-                        ))}
-                    </ul>
+                    {headlinesLoading && <div className="badge">Loading…</div>}
+                    {!headlinesLoading && (!headlines || headlines.length === 0) && <div className="badge">No headlines right now.</div>}
+                    {!headlinesLoading && headlines && headlines.length > 0 && (
+                        <ul style={{ margin: 0, paddingLeft: 16 }}>
+                            {headlines.map((h, i) => (
+                                <li key={i} style={{ marginBottom: 8 }}>
+                                    <span style={{ color: 'var(--text)' }}>{h?.title || 'Untitled'}</span>
+                                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{h?.source || 'Unknown source'}</div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 </div>
 
                 <div className="card">
