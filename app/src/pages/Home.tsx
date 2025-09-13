@@ -219,9 +219,10 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                     </div>
                 </div>
 
-                <div className="card">
-                    <h3>Results</h3>
-                    {error && (
+                {/* Results - Error States */}
+                {error && (
+                    <div className="card">
+                        <h3>Results</h3>
                         <div style={{
                             background: 'rgba(239, 68, 68, 0.1)',
                             border: '1px solid rgba(239, 68, 68, 0.3)',
@@ -253,77 +254,120 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                                 </button>
                             </div>
                         </div>
-                    )}
-                    {loading && <div className="badge">Analyzing…</div>}
-                    {!loading && !error && !result && <div className="badge">No results yet. Try "Nike Dunk Low VS Jordan 1 for Fall denim".</div>}
-                    {!loading && result && (
-                        <div style={{ display: 'grid', gap: 20 }}>
-                            {/* Decision Snapshot */}
-                            <div>
-                                {result.verdict && (
-                                    <div style={{
-                                        display: 'inline-block',
-                                        background: result.verdict === 'BUY' || result.verdict === 'Go' ? '#10b981' :
-                                            result.verdict === 'HOLD' || result.verdict === 'Hold' ? '#f59e0b' : '#ef4444',
-                                        color: 'white',
-                                        padding: '4px 12px',
-                                        borderRadius: '16px',
-                                        fontSize: '12px',
-                                        fontWeight: '600',
-                                        textTransform: 'uppercase',
-                                        marginBottom: '8px',
-                                        marginRight: '8px'
-                                    }}>
-                                        {result.verdict}
-                                    </div>
-                                )}
-                                {result.confidence && (
-                                    <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                                        {result.confidence}% confidence
-                                    </span>
-                                )}
-                                <div><strong>{result.title || 'Analysis Result'}</strong></div>
-                            </div>
+                    </div>
+                )}
 
-                            {/* Explain Card */}
-                            {result.explain?.length && (
-                                <div>
-                                    <h4>Why this verdict?</h4>
-                                    <ul style={{ margin: 0, paddingLeft: 16 }}>
-                                        {result.explain.map((f: any, i: number) => (
-                                            <li key={i} style={{ marginBottom: 8 }}>
-                                                <strong style={{
-                                                    color: f.impact === 'positive' ? '#10b981' :
-                                                        f.impact === 'negative' ? '#ef4444' : '#6b7280'
-                                                }}>
-                                                    {f.impact === 'positive' ? '+' : f.impact === 'negative' ? '-' : '~'}
-                                                </strong> {f.factor} — {f.note}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
+                {/* Results - Loading & Empty States */}
+                {!error && (loading || (!result && !loading)) && (
+                    <div className="card">
+                        <h3>Results</h3>
+                        {loading && <div className="badge">Analyzing…</div>}
+                        {!loading && !result && <div className="badge">No results yet. Try "Nike Dunk Low VS Jordan 1 for Fall denim".</div>}
+                    </div>
+                )}
 
-                            {/* Images Strip */}
-                            <ImagesStrip
-                                images={result.images}
-                                onImageClick={(src) => window.open(src, '_blank', 'noopener,noreferrer')}
+                {/* Results - Verdict Card */}
+                {!loading && !error && result && (
+                    <section className="verdict-card">
+                        {/* Header Row: Verdict Badge and Confidence */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                            <span className={`badge ${(result.verdict || 'test').toLowerCase()}`}>
+                                {result.verdict || 'TEST'}
+                            </span>
+                            <span className="pill">
+                                {result.confidence || 50}% confidence
+                            </span>
+                        </div>
+
+                        {/* Subheader */}
+                        <div style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '16px' }}>
+                            Quick analysis for: <strong>{lastQuery || 'product analysis'}</strong>
+                        </div>
+
+                        {/* KPI Grid - Map data to 5 tiles */}
+                        <div className="kpi-grid-5">
+                            <KpiTile
+                                label="Demand"
+                                value={result.kpis?.availability || kpis.availability || 0}
+                                suffix="%"
+                                goodHigh
                             />
+                            <KpiTile
+                                label="Momentum"
+                                value={result.kpis?.markdownTrend ? 100 - result.kpis.markdownTrend : (100 - (kpis.markdownPct || 0))}
+                                suffix="%"
+                                goodHigh
+                            />
+                            <KpiTile
+                                label="Saturation"
+                                value={result.kpis?.markdownTrend || kpis.markdownPct || 0}
+                                suffix="%"
+                                goodHigh={false}
+                            />
+                            <KpiTile
+                                label="Freshness"
+                                value={result.confidence || 75}
+                                suffix="%"
+                                goodHigh
+                            />
+                            <KpiTile
+                                label="Style Fit"
+                                value={result.kpis?.diversification || kpis.diversification || 0}
+                                suffix="%"
+                                goodHigh
+                            />
+                        </div>
 
-                            {/* Sources & Citations */}
-                            <div>
-                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Sources</div>
-                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                    {(result.sources || []).map((s: string, i: number) => (
-                                        <span key={`${s}-${i}`} className="badge">
-                                            {s === 'trends' ? 'External Signals' : s}
-                                        </span>
+                        {/* Why this verdict? Explanation List */}
+                        {result.explain?.length && (
+                            <div className="explain-list">
+                                <h4 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>Why this verdict?</h4>
+                                <div>
+                                    {result.explain.map((f: any, i: number) => (
+                                        <div key={i} className={`explain-item tone-${f.impact || 'neutral'}`}>
+                                            <strong>
+                                                {f.impact === 'positive' ? '+' : f.impact === 'negative' ? '–' : '•'}
+                                            </strong> {f.factor} — {f.note}
+                                        </div>
                                     ))}
                                 </div>
                             </div>
+                        )}
+
+                        {/* Sources & Citations */}
+                        <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                            <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '6px' }}>Sources & Citations</div>
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                {result.sources?.length ? (
+                                    result.sources.map((s: string, i: number) => (
+                                        <a key={`${s}-${i}`}
+                                            href="#"
+                                            style={{ fontSize: '11px', color: 'var(--accent)', textDecoration: 'none' }}
+                                            onClick={(e) => e.preventDefault()}
+                                        >
+                                            {s === 'trends' ? 'External Signals' : s}
+                                        </a>
+                                    ))
+                                ) : (
+                                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Source: gemini</span>
+                                )}
+                            </div>
                         </div>
-                    )}
-                </div>
+
+                        {/* Optional Images Strip */}
+                        {result.images?.length > 0 && (
+                            <div style={{ marginTop: '16px' }}>
+                                <ImagesStrip
+                                    images={result.images}
+                                    onImageClick={(src) => window.open(src, '_blank', 'noopener,noreferrer')}
+                                />
+                                <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px', textAlign: 'center' }}>
+                                    Images are illustrative; click to open source
+                                </div>
+                            </div>
+                        )}
+                    </section>
+                )}
             </div>
 
             {/* RIGHT: headlines + tips */}

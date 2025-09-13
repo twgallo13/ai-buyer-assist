@@ -161,3 +161,64 @@ body,
   background: var(--accent);
   color: white;
 }
+
+/* Verdict Card Styling - v2.1.9k */
+.verdict-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px 18px;
+}
+
+.badge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.badge.buy {
+  background: #e9f7ef;
+  color: #1d7f4f;
+}
+
+.badge.test {
+  background: #fef3cd;
+  color: #b45309;
+}
+
+.badge.pass {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.badge.aggressive {
+  background: #fce7f3;
+  color: #be185d;
+}
+
+.kpi-grid-5 {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.explain-list {
+  margin-top: 12px;
+}
+
+.explain-item {
+  margin: 6px 0;
+}
+
+.tone-positive {
+  color: #1d7f4f;
+}
+
+.tone-neutral {
+  color: #6b7280;
+}
+
+.tone-negative {
+  color: #b91c1c;
+}
