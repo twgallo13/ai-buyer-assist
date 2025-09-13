@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import Home from './pages/Home'
-import Analyze from './pages/Analyze'
+import AnalyzeRedirect from './pages/AnalyzeRedirect'
 import TrendRadar from './pages/TrendRadar'
 import ComparePage from './pages/Compare'
 import BatchPage from './pages/Batch'
@@ -71,8 +71,8 @@ function App() {
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'home': return <Home navigate={navigate} />;
-      case 'analyze': return <Analyze initialQuery={queryParam} />;
+      case 'home': return <Home navigate={navigate} initialQuery={queryParam} />;
+      case 'analyze': return <AnalyzeRedirect navigate={navigate} />;
       case 'trendradar': return <TrendRadar />;
       case 'compare': return <ComparePage />;
       case 'batch': return <BatchPage />;

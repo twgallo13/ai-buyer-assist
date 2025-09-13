@@ -20,7 +20,6 @@ const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, usage }) =
 
     const navItems = [
         { key: 'home', label: 'Home' },
-        { key: 'analyze', label: 'Analyze' },
         { key: 'trendradar', label: 'Trends' },
         { key: 'compare', label: 'Compare' },
         { key: 'batch', label: 'Batch' },

@@ -74,8 +74,8 @@ app.get("/api/health", (_req, res) => {
         ok: true,
         keyPresent: HAS_KEY,
         cwd: process.cwd(),
-        envFile: path.resolve(process.cwd(), '.env'),
-        version: "v2.0.6",
+        envFile: path.resolve(process.env, '.env'),
+        version: "v2.1.6",
         usage: {
             day: usage.day,
             deepCalls: usage.deepCalls,
@@ -83,6 +83,10 @@ app.get("/api/health", (_req, res) => {
             budget: Number(process.env.API_DAILY_BUDGET || '500')
         }
     });
+});
+
+app.get("/api/version", (_req, res) => {
+    res.json({ version: "v2.1.6" });
 });
 
 // Usage endpoints
