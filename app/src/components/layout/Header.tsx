@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ThemeToggle from '../ThemeToggle';
+import { getApiVersion } from '../../lib/env-health';
 
 interface HeaderProps {
     currentPage: string;
@@ -8,21 +9,13 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, usage }) => {
-    const [version, setVersion] = useState<string>('v2.1.0');
+    const [version, setVersion] = useState<string>('v2.1.1');
 
     useEffect(() => {
-        // Try to fetch version from API, fallback to constant
-        fetch('/api/version')
-            .then(res => res.json())
-            .then(data => {
-                if (data.version) {
-                    setVersion(data.version);
-                }
-            })
-            .catch(() => {
-                // Fallback to hardcoded version if API not available
-                setVersion('v2.1.0');
-            });
+        // Try to fetch version from API, fallback to v2.1.1
+        getApiVersion().then(v => {
+            setVersion(v);
+        });
     }, []);
 
     const navItems = [

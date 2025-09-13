@@ -1,11 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import VerdictCard from '../components/card/VerdictCard';
+import Banner from '../components/Banner';
+import { getApiHealth, getApiVersion } from '../lib/env-health';
 
-const Home: React.FC = () => {
+interface HomeProps {
+    navigate: (path: string) => void;
+}
+
+const Home: React.FC<HomeProps> = ({ navigate }) => {
     const [headlines, setHeadlines] = useState<Array<{ title: string; source: string }>>([]);
     const [headlinesLoading, setHeadlinesLoading] = useState(true);
+    const [apiHealth, setApiHealth] = useState<{ ok: boolean; keyPresent: boolean } | null>(null);
+    const [version, setVersion] = useState<string>('v2.1.1');
 
     useEffect(() => {
+        // Check API health on mount
+        getApiHealth().then(health => {
+            setApiHealth(health);
+        });
+
+        // Fetch version (non-blocking)
+        getApiVersion().then(v => {
+            setVersion(v);
+        });
+
         // Try to fetch headlines from /api/trends
         fetch('/api/trends?limit=5')
             .then(res => res.json())
@@ -21,8 +39,9 @@ const Home: React.FC = () => {
     }, []);
 
     const handleSearchAction = (query: string, mode: 'quick' | 'deep') => {
-        console.log('Search action:', { query, mode });
-        // TODO: Navigate to analyze page with query or handle inline
+        if (!query.trim()) return;
+        const encodedQuery = encodeURIComponent(query.trim());
+        navigate(`/analyze?q=${encodedQuery}&mode=${mode}`);
     };
 
     // Sample verdict cards data
@@ -76,7 +95,12 @@ const Home: React.FC = () => {
                     </p>
                 </div>
 
-                {/* Main Grid Layout */}
+                {/* API Health Banner */}
+                {apiHealth && !apiHealth.keyPresent && (
+                    <Banner kind="info" dismissible>
+                        Running without AI key — using limited signals.
+                    </Banner>
+                )}                {/* Main Grid Layout */}
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: '2fr 1fr',

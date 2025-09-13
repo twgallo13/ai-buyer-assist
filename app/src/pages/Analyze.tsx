@@ -4,9 +4,13 @@ import '../styles/theme.css';
 
 type Headline = { title: string; url: string; source: string; };
 
-export default function AnalyzePage() {
+interface AnalyzeProps {
+  initialQuery?: string;
+}
+
+export default function AnalyzePage({ initialQuery = '' }: AnalyzeProps) {
   const settings = getSettings();
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(initialQuery);
   const [headlines, setHeadlines] = useState<Headline[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
