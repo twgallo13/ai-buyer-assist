@@ -10,6 +10,33 @@ interface HomeProps {
     initialQuery?: string;
 }
 
+// Helper to normalize API payload to UI model
+const normalizeToUi = (api: any) => {
+    const result = api?.result || api;
+
+    return {
+        title: result?.title || 'Analysis Result',
+        verdict: result?.verdict || 'HOLD',
+        confidence: result?.confidence || 50,
+        kpis: {
+            availability: result?.kpis?.availability || 0,
+            markdownTrend: result?.kpis?.markdownRisk || 0,
+            diversification: result?.kpis?.diversification || 0,
+            nikeDependency: Math.max(0, Math.min(100, 100 - (result?.kpis?.diversification || 0)))
+        },
+        explain: (result?.explain || []).map((item: any) => ({
+            factor: item?.factor || 'Unknown',
+            impact: item?.impact === 'positive' ? 'positive' :
+                item?.impact === 'negative' ? 'negative' : 'neutral',
+            note: item?.note || ''
+        })),
+        images: (result?.images || []).map((img: any) => ({
+            url: typeof img === 'string' ? img : (img?.url || img?.src || ''),
+            alt: typeof img === 'string' ? '' : (img?.alt || '')
+        })).filter((img: any) => img.url)
+    };
+};
+
 const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) => {
     const [headlines, setHeadlines] = useState<Array<{ title: string; source: string }>>([]);
     const [headlinesLoading, setHeadlinesLoading] = useState(true);
@@ -82,25 +109,22 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
 
         try {
             if (mode === 'quick') {
-                // Quick analysis - minimal mock with basic verdict logic
-                const indices = { demand: 58, momentum: 55, saturation: 44, freshness: 53, styleFit: 61 };
-                const avgScore = Object.values(indices).reduce((a, b) => a + b, 0) / Object.values(indices).length;
-                const verdict = avgScore >= 60 ? 'Go' : avgScore >= 45 ? 'Hold' : 'Skip';
-                const confidence = Math.round(50 + (avgScore - 50) * 0.8); // Scale confidence based on score
-                
-                setResult({
-                    verdict,
-                    confidence: Math.max(20, Math.min(95, confidence)),
-                    summary: 'Quick read from public trend signals.',
-                    indices,
-                    sources: ['quick'],
-                    explain: {
-                        factors: [
-                            { impact: avgScore >= 55 ? '+' : '-', label: 'Market Demand', note: `Average performance at ${avgScore.toFixed(0)}%` },
-                            { impact: indices.saturation <= 50 ? '+' : '-', label: 'Market Saturation', note: `${indices.saturation}% market saturation` },
-                            { impact: '~', label: 'Quick Analysis', note: 'Limited data sources - use Deep analysis for comprehensive insights' }
-                        ]
-                    }
+                // Quick analysis - call /api/quick
+                const response = await fetch('/api/quick', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: targetQuery })
+                });
+                const data = await response.json();
+                const normalized = normalizeToUi(data);
+                setResult(normalized);
+
+                // Update KPI state with normalized data
+                setKpis({
+                    availability: normalized.kpis.availability,
+                    markdownPct: normalized.kpis.markdownTrend,
+                    diversification: normalized.kpis.diversification,
+                    dependency: normalized.kpis.nikeDependency
                 });
             } else {
                 // Deep analysis
@@ -117,7 +141,16 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                     body: JSON.stringify(body)
                 });
                 const data = await response.json();
-                setResult(data);
+                const normalized = normalizeToUi(data);
+                setResult(normalized);
+
+                // Update KPI state with normalized data
+                setKpis({
+                    availability: normalized.kpis.availability,
+                    markdownPct: normalized.kpis.markdownTrend,
+                    diversification: normalized.kpis.diversification,
+                    dependency: normalized.kpis.nikeDependency
+                });
             }
         } catch (e: any) {
             console.error('Analysis failed:', e);
@@ -224,9 +257,10 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                             {/* Decision Snapshot */}
                             <div>
                                 {result.verdict && (
-                                    <div style={{ 
+                                    <div style={{
                                         display: 'inline-block',
-                                        background: result.verdict === 'Go' ? '#10b981' : result.verdict === 'Hold' ? '#f59e0b' : '#ef4444',
+                                        background: result.verdict === 'BUY' || result.verdict === 'Go' ? '#10b981' :
+                                            result.verdict === 'HOLD' || result.verdict === 'Hold' ? '#f59e0b' : '#ef4444',
                                         color: 'white',
                                         padding: '4px 12px',
                                         borderRadius: '16px',
@@ -244,51 +278,22 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                                         {result.confidence}% confidence
                                     </span>
                                 )}
-                                <div><strong>{result.summary || 'Summary unavailable'}</strong></div>
-                            </div>
-
-                            {/* KPI Tiles */}
-                            <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
-                                <KpiTile
-                                    label="Demand"
-                                    value={result.indices?.demand ?? 0}
-                                    suffix="%"
-                                    goodHigh={true}
-                                />
-                                <KpiTile
-                                    label="Momentum"
-                                    value={result.indices?.momentum ?? 0}
-                                    suffix="%"
-                                    goodHigh={true}
-                                />
-                                <KpiTile
-                                    label="Saturation"
-                                    value={result.indices?.saturation ?? 0}
-                                    suffix="%"
-                                    goodHigh={false}
-                                />
-                                <KpiTile
-                                    label="Freshness"
-                                    value={result.indices?.freshness ?? 0}
-                                    suffix="%"
-                                    goodHigh={true}
-                                />
-                                <KpiTile
-                                    label="Style Fit"
-                                    value={result.indices?.styleFit ?? 0}
-                                    suffix="%"
-                                    goodHigh={true}
-                                />
+                                <div><strong>{result.title || 'Analysis Result'}</strong></div>
                             </div>
 
                             {/* Explain Card */}
-                            {result.explain?.factors?.length && (
+                            {result.explain?.length && (
                                 <div>
                                     <h4>Why this verdict?</h4>
                                     <ul style={{ margin: 0, paddingLeft: 16 }}>
-                                        {result.explain.factors.map((f: any, i: number) => (
+                                        {result.explain.map((f: any, i: number) => (
                                             <li key={i} style={{ marginBottom: 8 }}>
-                                                <strong>{f.impact}</strong> {f.label} — {f.note}
+                                                <strong style={{
+                                                    color: f.impact === 'positive' ? '#10b981' :
+                                                        f.impact === 'negative' ? '#ef4444' : '#6b7280'
+                                                }}>
+                                                    {f.impact === 'positive' ? '+' : f.impact === 'negative' ? '-' : '~'}
+                                                </strong> {f.factor} — {f.note}
                                             </li>
                                         ))}
                                     </ul>
@@ -298,7 +303,7 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                             {/* Images Strip */}
                             <ImagesStrip
                                 images={result.images}
-                                onImageClick={(src) => window.open(src, '_blank')}
+                                onImageClick={(src) => window.open(src, '_blank', 'noopener,noreferrer')}
                             />
 
                             {/* Sources & Citations */}
