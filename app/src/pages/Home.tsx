@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import KpiTile from '../components/KpiTile';
+import KpiTiles from '../components/home/KpiTiles';
+import ImagesStrip from '../components/home/ImagesStrip';
 import { getApiHealth } from '../lib/env-health';
 import { getSettings, subscribeSettings, applyTheme, type Settings } from '../lib/settings';
 
@@ -108,6 +110,18 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                         (!apiHealth.keyPresent ? <span className="badge">Running without Sales Anchors — AI will infer from public signals; confidence may be lower.</span> :
                             <span className="badge">API connected</span>)}
                     <div className="hr" />
+
+                    {/* Live KPI Tiles */}
+                    <div style={{ marginBottom: 16 }}>
+                        <KpiTiles
+                            availability={null}
+                            markdownRisk={null}
+                            velocity={null}
+                            diversification={null}
+                            loading={false}
+                        />
+                    </div>
+
                     <div style={{ display: 'grid', gap: 12 }}>
                         <textarea
                             placeholder="Paste SKU / product / brand / trend question…"
@@ -183,22 +197,11 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                                 </div>
                             )}
 
-                            {/* Images (only show if present) */}
-                            {result.images && result.images.length > 0 && (
-                                <div>
-                                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>Images</div>
-                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                        {result.images.map((img: any, i: number) => (
-                                            <img
-                                                key={i}
-                                                src={img.url || img}
-                                                alt={img.alt || `Result image ${i + 1}`}
-                                                style={{ maxWidth: 100, maxHeight: 100, borderRadius: 4, border: '1px solid var(--border)' }}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                            {/* Images Strip */}
+                            <ImagesStrip
+                                images={result.images}
+                                onImageClick={(src) => window.open(src, '_blank')}
+                            />
 
                             {/* Sources & Citations */}
                             <div>

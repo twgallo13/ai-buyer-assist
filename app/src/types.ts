@@ -20,6 +20,8 @@ export type Indices = {
 
 export type Citation = { title: string; url: string; source: string };
 
+export type DeepImage = { url?: string; src: string; alt?: string };
+
 export type DeepResult = {
     mode?: 'real' | 'mock-nokey' | 'mock-fallback';
     summary: string;
@@ -27,4 +29,5 @@ export type DeepResult = {
     sources?: string[];
     confidence?: number;
     citations?: Citation[];
+    images?: DeepImage[] | string[]; // server may return either
 };
