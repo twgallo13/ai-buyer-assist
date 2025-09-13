@@ -205,12 +205,16 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                             onChange={(e) => setQuery(e.target.value)}
                             style={{ width: '100%', minHeight: 120, background: 'transparent', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 10, padding: 12 }}
                         />
-                        <div style={{ display: 'flex', gap: 10 }}>
-                            <button className="btn" onClick={() => runAnalysis('quick')} disabled={loading}>Run Quick</button>
-                            <button className="btn primary" onClick={() => runAnalysis('deep')} disabled={loading}>Run Deep</button>
-                            <span className="badge">Model: {settings.model}</span>
-                            <span className="badge">Temp: {settings.temperature.toFixed(2)}</span>
-                            <span className="badge">Region: {settings.regionPreset}</span>
+                        <div className="action-bar">
+                            <div className="btn-group">
+                                <button className="btn" onClick={() => runAnalysis('quick')} disabled={loading}>Run Quick</button>
+                                <button className="btn btn-primary" onClick={() => runAnalysis('deep')} disabled={loading}>Run Deep</button>
+                            </div>
+                            <div className="pill-group">
+                                <span className="pill">Model: {settings.model}</span>
+                                <span className="pill">Temp: {settings.temperature.toFixed(2)}</span>
+                                <span className="pill">Region: {settings.regionPreset}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
