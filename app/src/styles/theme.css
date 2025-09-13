@@ -1,19 +1,21 @@
 :root {
+  /* Dark theme - default */
   --bg: #0b0b0f;
-  /* dark default */
-  --card: #151722;
+  --card: #14141a;
   --text: #e8e8ec;
   --muted: #a3a3b2;
+  --accent: #6366f1;
   --ring: #6366f1;
   --border: #2b2e3b;
 }
 
 :root[data-theme="light"] {
-  /* "Eggshell" light */
+  /* Light theme - eggshell */
   --bg: #F7F5EE;
-  --card: #ffffff;
+  --card: #FFFFFF;
   --text: #14151a;
   --muted: #555a66;
+  --accent: #6366f1;
   --ring: #6366f1;
   --border: #e6e2d6;
 }

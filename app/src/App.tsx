@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import Home from './pages/Home'
 import Analyze from './pages/Analyze'
 import TrendRadar from './pages/TrendRadar'
 import ComparePage from './pages/Compare'
@@ -6,18 +7,20 @@ import BatchPage from './pages/Batch'
 import SettingsPage from './pages/Settings'
 import SessionsPage from './pages/Sessions'
 import UsagePage from './pages/Usage'
-import ThemeToggle from './components/ThemeToggle'
+import Header from './components/layout/Header'
 import './styles/theme.css'
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<'analyze' | 'trendradar' | 'compare' | 'batch' | 'settings' | 'sessions' | 'usage'>('analyze');
+  const [currentPage, setCurrentPage] = useState<'home' | 'analyze' | 'trendradar' | 'compare' | 'batch' | 'settings' | 'sessions' | 'usage'>('home');
   const [usage, setUsage] = useState<{ deepCalls: number, budget: number } | null>(null);
 
   useEffect(() => {
     // Initialize theme from settings
-    import('./lib/settings').then(({ getSettings, applyTheme }) => {
-      const { theme } = getSettings();
-      applyTheme(theme);
+    import('./lib/settings').then(({ getSettings }) => {
+      import('./lib/theme').then(({ applyTheme }) => {
+        const { theme } = getSettings();
+        applyTheme(theme);
+      });
     });
 
     // Poll usage every 20 seconds
@@ -41,6 +44,7 @@ function App() {
 
   const renderPage = () => {
     switch (currentPage) {
+      case 'home': return <Home />;
       case 'analyze': return <Analyze />;
       case 'trendradar': return <TrendRadar />;
       case 'compare': return <ComparePage />;
@@ -48,59 +52,23 @@ function App() {
       case 'settings': return <SettingsPage />;
       case 'sessions': return <SessionsPage />;
       case 'usage': return <UsagePage />;
-      default: return <Analyze />;
+      default: return <Home />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Navigation */}
-      <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                  AI Buyer Assistant
-                </h1>
-              </div>
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                {[
-                  { key: 'analyze', label: 'Analyze' },
-                  { key: 'trendradar', label: 'Trends' },
-                  { key: 'compare', label: 'Compare' },
-                  { key: 'batch', label: 'Batch' },
-                  { key: 'settings', label: 'Settings' },
-                  { key: 'sessions', label: 'Sessions' },
-                  { key: 'usage', label: 'Usage' }
-                ].map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => setCurrentPage(key as any)}
-                    className={`${currentPage === key
-                        ? 'border-indigo-500 text-gray-900 dark:text-white'
-                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-                      } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              {usage && (
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {usage.deepCalls}/{usage.budget} calls
-                </span>
-              )}
-              <ThemeToggle />
-            </div>
-          </div>
-        </div>
-      </nav>
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: 'var(--bg)',
+      color: 'var(--text)'
+    }}>
+      <Header
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        usage={usage}
+      />
 
-      {/* Main content */}
-      <main className="flex-1">
+      <main>
         {renderPage()}
       </main>
     </div>

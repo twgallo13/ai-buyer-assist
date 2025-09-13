@@ -318,7 +318,7 @@ async function collectTrends(query, { timeoutMs = DEFAULT_TRENDS_TIMEOUT } = {})
 }
 
 // --- Gemini client ---
-const genAI = hasKey ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+const genAI = HAS_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
 const MODEL_ID = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
 // --- Deep analysis ---
@@ -398,7 +398,7 @@ app.post("/api/deep", async (req, res) => {
     }
 
     // If key missing, return mock response (never 500)
-    if (!hasKey) {
+    if (!HAS_KEY) {
         return res.status(200).json({
             mode: 'deep',
             sources: ['mock', 'no-key'],
