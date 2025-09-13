@@ -1,10 +1,98 @@
-:root{
-  --bg:#F7F5EE; --card:#ffffff; --text:#1a1b1f; --muted:#666a73; --accent:#5b5ee6;
+:root {
+  --bg: #0b0b0f;
+  /* dark default */
+  --card: #151722;
+  --text: #e8e8ec;
+  --muted: #a3a3b2;
+  --ring: #6366f1;
+  --border: #2b2e3b;
 }
-html,body,#root{height:100%;}
-body{background:var(--bg); color:var(--text);}
-.card{background:var(--card); border:1px solid color-mix(in oklab, var(--text) 12%, transparent); border-radius:14px;}
-.muted{color:var(--muted);}
-.btn{border-radius:10px; padding:.55rem .9rem; border:1px solid color-mix(in oklab, var(--text) 15%, transparent);}
-.btn-primary{background:var(--accent); color:#fff; border-color:transparent;}
-.pill{border-radius:999px; background:color-mix(in oklab, var(--accent) 12%, transparent); padding:.25rem .6rem;}
+
+:root[data-theme="light"] {
+  /* "Eggshell" light */
+  --bg: #F7F5EE;
+  --card: #ffffff;
+  --text: #14151a;
+  --muted: #555a66;
+  --ring: #6366f1;
+  --border: #e6e2d6;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.btn.primary {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 1px var(--ring) inset;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.grid-12 {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.col-8 {
+  grid-column: span 8;
+}
+
+.col-4 {
+  grid-column: span 4;
+}
+
+@media (max-width: 1024px) {
+
+  .col-8,
+  .col-4 {
+    grid-column: span 12;
+  }
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.hr {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0;
+}

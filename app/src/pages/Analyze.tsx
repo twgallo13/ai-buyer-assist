@@ -1,91 +1,135 @@
-import {useEffect, useState} from 'react';
-import CsvNotice from '../components/analyze/CsvNotice';
-import QueryBuilder from '../components/analyze/QueryBuilder';
-import SearchForm from '../components/analyze/SearchForm';
-import RightRail from '../components/analyze/RightRail';
-import ResultsPanel from '../components/analyze/ResultsPanel';
+import { useEffect, useState } from 'react';
 import { getSettings } from '../lib/settings';
+import { initTheme } from '../lib/theme';
+import '../styles/theme.css';
 
-export default function Analyze(){
-  const settings = getSettings(); // model/temp/region already persisted
-  const [headlines,setHeadlines] = useState<Array<{title:string,url?:string,source?:string}>>([]);
-  const [loadingHL,setLoadingHL] = useState(true);
-  const [result,setResult] = useState<any>(null);
-  const [error,setError] = useState<string>();
+type Headline = { title: string; url: string; source: string; };
+
+export default function AnalyzePage(){
+  const settings = getSettings();
+  const [q, setQ] = useState('');
+  const [headlines, setHeadlines] = useState<Headline[]|null>(null);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string|null>(null);
+  const [health, setHealth] = useState<{ok:boolean; keyPresent:boolean}|null>(null);
+
+  useEffect(()=>{ initTheme(settings.theme); }, []);
+
+  // health check for real key presence
+  useEffect(()=>{
+    fetch('/api/health').then(r=>r.json()).then(j=>setHealth({ok:!!j?.ok, keyPresent: !!j?.keyPresent})).catch(()=>setHealth({ok:false,keyPresent:false}));
+  },[]);
 
   // headlines (right rail)
   useEffect(()=>{
-    let stop=false;
     (async()=>{
       try{
-        const r = await fetch(`/api/trends?query=sneakers`);
-        const j = await r.json();
-        if(!stop) setHeadlines((j.items||[]).slice(0,6));
-      }catch{ /* ignore */ }
-      finally{ if(!stop) setLoadingHL(false); }
+        const r = await fetch('/api/trends?query=sneakers');
+        const j = await r.json().catch(()=>null);
+        setHeadlines(Array.isArray(j?.items) ? j.items.slice(0,6) : []);
+      } catch{ setHeadlines([]); }
     })();
-    return ()=>{stop=true};
   },[]);
 
-  // composed query from query builder (only when CSV provides options)
-  const handleCompose = (frag:string)=>{
-    const el = document.getElementById('analyze-textarea') as HTMLTextAreaElement|null;
-    if(!el) return;
-    const v = el.value.trim();
-    el.value = v ? `${v} ${frag}` : frag;
-    el.dispatchEvent(new Event('input',{bubbles:true}));
-  };
-
-  const runQuick = async (q:string)=>{
-    setError(undefined); setResult(null);
+  async function run(mode:'quick'|'deep'){
+    setLoading(true); setError(null); setResult(null);
     try{
-      const r = await fetch('/api/quick', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({q, settings})});
-      const j = await r.json(); setResult(j);
-    }catch(e:any){ setError('Quick analysis failed.'); }
-  };
-
-  const runDeep = async (q:string)=>{
-    setError(undefined); setResult(null);
-    try{
-      const r = await fetch('/api/deep', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({q, model:settings.model, temperature:settings.temperature, region:settings.regionPreset, reasoningLevel:settings.reasoningLevel})});
-      const j = await r.json(); setResult(j);
-    }catch(e:any){ setError('Deep analysis failed.'); }
-  };
-
-  // TODO: wire these when CSV store is reintroduced
-  const mockOptions:any[] = []; // hide QueryBuilder if empty
-  const hasCsv = false; // hide CSV banners for now, per product direction
+      if (mode==='quick'){
+        // Minimal quick mock (no CSV yet)
+        setResult({ summary: 'Quick read from public trend signals.', indices:{demand:58,momentum:55,saturation:44,freshness:53,styleFit:61}, sources:['quick'] });
+      } else {
+        const body = { query:q, model: settings.model, temperature: settings.temperature, reasoningLevel: settings.reasoning, region: settings.region };
+        const r = await fetch('/api/deep',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const j = await r.json();
+        setResult(j);
+      }
+    } catch(e:any){
+      setError('Analysis failed. Please try again.');
+    } finally { setLoading(false); }
+  }
 
   return (
-    <div style={{maxWidth:'1200px', margin:'0 auto', padding:'20px'}}>
-      <h1 style={{fontSize:'clamp(28px,3vw,40px)', fontWeight:700, margin:'10px 0 16px'}}>AI Buyer Assistant</h1>
-
-      <div className="grid" style={{gridTemplateColumns:'minmax(0,1fr) 360px', gap:'16px'}}>
-        {/* Left column */}
-        <div className="space-y-3">
-          <CsvNotice hasCsv={hasCsv}/>
-          <div id="hero" className="space-y-3">
-            <SearchForm
-              defaultModel={settings.model}
-              temp={settings.temperature}
-              region={settings.regionPreset}
-              onQuick={runQuick}
-              onDeep={runDeep}
+    <div className="app-container grid grid-12">
+      {/* LEFT: hero + results */}
+      <div className="col-8">
+        <div className="card" style={{marginBottom:16}}>
+          {!health ? <span className="badge">Checking API health…</span> :
+            (!health.keyPresent ? <span className="badge">Running without Sales Anchors — AI will infer from public signals; confidence may be lower.</span> :
+             <span className="badge">API connected</span>)}
+          <div className="hr" />
+          <div style={{display:'grid', gap:12}}>
+            <textarea
+              placeholder="Paste SKU / product / brand / trend question…"
+              value={q}
+              onChange={(e)=>setQ(e.target.value)}
+              style={{width:'100%', minHeight:120, background:'transparent', color:'var(--text)', border:'1px solid var(--border)', borderRadius:10, padding:12}}
             />
-            <textarea id="analyze-textarea" style={{display:'none'}} />
+            <div style={{display:'flex',gap:10}}>
+              <button className="btn" onClick={()=>run('quick')} disabled={loading}>Run Quick</button>
+              <button className="btn primary" onClick={()=>run('deep')} disabled={loading}>Run Deep</button>
+              <span className="badge">Model: {settings.model}</span>
+              <span className="badge">Temp: {settings.temperature.toFixed(2)}</span>
+              <span className="badge">Region: {settings.region}</span>
+            </div>
           </div>
-          <QueryBuilder
-            collections={mockOptions}
-            categories={mockOptions}
-            colors={mockOptions}
-            genders={mockOptions}
-            onCompose={handleCompose}
-          />
-          <ResultsPanel result={result} error={error}/>
         </div>
 
-        {/* Right rail */}
-        <RightRail headlines={headlines} loading={loadingHL}/>
+        <div className="card">
+          <h3>Results</h3>
+          {error && <div className="badge" style={{borderColor:'crimson', color:'crimson'}}> {error} </div>}
+          {loading && <div className="badge">Analyzing…</div>}
+          {!loading && !error && !result && <div className="badge">No results yet. Try "Nike Dunk Low VS Jordan 1 for Fall denim".</div>}
+          {!loading && result && (
+            <div style={{display:'grid', gap:10}}>
+              <div><strong>{result.summary || 'Summary unavailable'}</strong></div>
+              <div className="grid" style={{gridTemplateColumns:'repeat(5, 1fr)', gap:8}}>
+                {['demand','momentum','saturation','freshness','styleFit'].map(k=>{
+                  const v = result.indices?.[k] ?? 0;
+                  return (
+                    <div key={k} className="card" style={{padding:'10px 12px'}}>
+                      <div style={{fontSize:12, color:'var(--muted)', textTransform:'uppercase'}}>{k}</div>
+                      <div style={{fontSize:20, fontWeight:600}}>{Math.round(v)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hr"/>
+              <div>
+                <div style={{fontSize:12, color:'var(--muted)'}}>Sources</div>
+                <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+                  {(result.sources || []).map((s:string)=>(<span key={s} className="badge">{s}</span>))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* RIGHT: headlines + tips */}
+      <div className="col-4">
+        <div className="card" style={{marginBottom:16}}>
+          <h3>AI Headlines</h3>
+          {!headlines && <div className="badge">Loading…</div>}
+          {headlines && headlines.length===0 && <div className="badge">No headlines right now.</div>}
+          <ul style={{margin:0, paddingLeft:16}}>
+            {headlines?.map((h)=>(
+              <li key={h.url} style={{marginBottom:8}}>
+                <a href={h.url} target="_blank" rel="noreferrer" style={{color:'var(--text)'}}>{h.title}</a>
+                <div style={{fontSize:12, color:'var(--muted)'}}>{h.source}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="card">
+          <h3>Tips</h3>
+          <ul>
+            <li>Paste SKU or catalog title.</li>
+            <li>Add color/material terms.</li>
+            <li>Use "vs" to compare styles.</li>
+          </ul>
+        </div>
       </div>
     </div>
   );

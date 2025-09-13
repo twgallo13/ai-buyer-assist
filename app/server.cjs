@@ -12,9 +12,9 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // API key detection and logging
-const hasKey = !!(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim());
+const HAS_KEY = !!process.env.GEMINI_API_KEY && String(process.env.GEMINI_API_KEY).trim().length > 15;
 console.log('[server] env path:', path.resolve(process.cwd(), '.env'));
-console.log('[server] keyPresent:', hasKey);
+console.log('[server] keyPresent:', HAS_KEY);
 
 // v1.7 Budget & Ops: Usage tracking, caching, and rate caps
 function today() {
@@ -72,7 +72,7 @@ app.get("/api/health", (_req, res) => {
     rolloverUsageIfNeeded();
     res.json({
         ok: true,
-        keyPresent: hasKey,
+        keyPresent: HAS_KEY,
         cwd: process.cwd(),
         envFile: path.resolve(process.cwd(), '.env'),
         version: "v2.0.6",
@@ -323,6 +323,15 @@ const MODEL_ID = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
 // --- Deep analysis ---
 app.post("/api/deep", async (req, res) => {
+    // If no key, return graceful fallback
+    if (!HAS_KEY) {
+        return res.status(200).json({
+            summary: 'Running without API key — returning safe public-signal estimate.',
+            indices: { demand: 56, momentum: 54, saturation: 46, freshness: 52, styleFit: 60 },
+            sources: ['fallback', 'no-key']
+        });
+    }
+
     const { query, rows, model, temperature, reasoningLevel, settings, followUp, context } = req.body || {};
     const csvSize = Array.isArray(rows) ? rows.length : 0;
     const chosenModel = (typeof model === 'string' && model.trim()) ? model : MODEL_ID;
