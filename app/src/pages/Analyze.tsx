@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getSettings, applyTheme } from '../lib/settings';
+import KpiTile from '../components/KpiTile';
 import '../styles/theme.css';
 
 type Headline = { title: string; url: string; source: string; };
@@ -86,16 +87,37 @@ export default function AnalyzePage({ initialQuery = '' }: AnalyzeProps) {
           {!loading && result && (
             <div style={{ display: 'grid', gap: 10 }}>
               <div><strong>{result.summary || 'Summary unavailable'}</strong></div>
-              <div className="grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
-                {['demand', 'momentum', 'saturation', 'freshness', 'styleFit'].map(k => {
-                  const v = result.indices?.[k] ?? 0;
-                  return (
-                    <div key={k} className="card" style={{ padding: '10px 12px' }}>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase' }}>{k}</div>
-                      <div style={{ fontSize: 20, fontWeight: 600 }}>{Math.round(v)}</div>
-                    </div>
-                  );
-                })}
+              <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
+                <KpiTile
+                  label="Demand"
+                  score={result.indices?.demand ?? 0}
+                  tone={result.indices?.demand >= 70 ? 'good' : result.indices?.demand >= 40 ? 'warn' : 'risk'}
+                  help="Market demand strength - higher scores indicate stronger consumer interest"
+                />
+                <KpiTile
+                  label="Momentum"
+                  score={result.indices?.momentum ?? 0}
+                  tone={result.indices?.momentum >= 70 ? 'good' : result.indices?.momentum >= 40 ? 'warn' : 'risk'}
+                  help="Trend velocity - measures how quickly interest is growing or declining"
+                />
+                <KpiTile
+                  label="Saturation"
+                  score={result.indices?.saturation ?? 0}
+                  tone={result.indices?.saturation <= 40 ? 'good' : result.indices?.saturation <= 70 ? 'warn' : 'risk'}
+                  help="Market saturation level - lower scores indicate less competition"
+                />
+                <KpiTile
+                  label="Freshness"
+                  score={result.indices?.freshness ?? 0}
+                  tone={result.indices?.freshness >= 70 ? 'good' : result.indices?.freshness >= 40 ? 'warn' : 'risk'}
+                  help="Trend freshness - newer trends score higher"
+                />
+                <KpiTile
+                  label="Style Fit"
+                  score={result.indices?.styleFit ?? 0}
+                  tone={result.indices?.styleFit >= 70 ? 'good' : result.indices?.styleFit >= 40 ? 'warn' : 'risk'}
+                  help="Style alignment with current trends and consumer preferences"
+                />
               </div>
               <div className="hr" />
               <div>
