@@ -9,7 +9,7 @@ export const HELP_TEXT = {
     temperature: "Lower values (0.1) are more focused, higher values (0.9) are more creative.",
     reasoningLevel: "Basic for speed, Comprehensive for detailed explanations and citations.",
     regionPreset: "Adjusts market data sources and cultural context for analysis.",
-    
+
     kpiWeights: {
         availability: "Product stock levels and distribution reach across channels.",
         markdownRisk: "Likelihood of requiring price reductions to clear inventory.",
@@ -19,9 +19,9 @@ export const HELP_TEXT = {
         trendAlignment: "Alignment with current fashion trends and consumer preferences.",
         competitorPresence: "Level of competitive activity and market saturation."
     },
-    
+
     verdictThresholds: "Score bands that determine buy recommendations: PASS (1-3) = avoid, TEST (4-6) = small order, BUY (7-8) = confident purchase, AGGRESSIVE (9-10) = maximum allocation.",
-    
+
     presets: {
         "Nike Portal Night Run": "Optimized for performance footwear with high velocity focus.",
         "Apparel Diversification": "Balanced approach for expanding clothing categories.",

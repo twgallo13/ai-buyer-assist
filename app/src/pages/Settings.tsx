@@ -207,7 +207,7 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-      
+
       {/* Version Footer */}
       <div className="settings-footer">
         <span className="version-text">Version {VERSION}</span>
