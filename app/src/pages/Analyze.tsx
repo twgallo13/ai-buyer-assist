@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getSettings, applyTheme } from '../lib/settings';
+import { getSettings, subscribeSettings, applyTheme, type Settings } from '../lib/settings';
 import KpiTile from '../components/KpiTile';
 import '../styles/theme.css';
 
@@ -10,7 +10,7 @@ interface AnalyzeProps {
 }
 
 export default function AnalyzePage({ initialQuery = '' }: AnalyzeProps) {
-  const settings = getSettings();
+  const [settings, setSettings] = useState<Settings>(getSettings());
   const [q, setQ] = useState(initialQuery);
   const [headlines, setHeadlines] = useState<Headline[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,13 @@ export default function AnalyzePage({ initialQuery = '' }: AnalyzeProps) {
   const [error, setError] = useState<string | null>(null);
   const [health, setHealth] = useState<{ ok: boolean; keyPresent: boolean } | null>(null);
 
-  useEffect(() => { applyTheme(settings.theme); }, []);
+  useEffect(() => { applyTheme(settings.theme); }, [settings.theme]);
+
+  // Subscribe to settings changes
+  useEffect(() => {
+    const unsubscribe = subscribeSettings(setSettings);
+    return unsubscribe;
+  }, []);
 
   // health check for real key presence
   useEffect(() => {
