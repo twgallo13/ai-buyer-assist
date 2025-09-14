@@ -7,7 +7,7 @@ interface HeaderProps {
     usage?: { deepCalls: number; budget: number } | null;
 }
 
-const FALLBACK_VERSION = 'v2.1.9k';
+const FALLBACK_VERSION = 'v2.1.9l';
 
 const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, usage }) => {
     const [version, setVersion] = useState<string>(FALLBACK_VERSION);

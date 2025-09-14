@@ -9,6 +9,7 @@
   --border: #2b2e3b;
   --chip-bg: #1e1e24;
   --chip-fg: #a3a3b2;
+  --skeleton: #1e1e24;
 }
 
 :root[data-theme="light"] {
@@ -22,6 +23,7 @@
   --border: #e6e2d6;
   --chip-bg: #f5f2e8;
   --chip-fg: #555a66;
+  --skeleton: #f0ede3;
 }
 
 html,
@@ -35,7 +37,7 @@ body,
 .app-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 16px 20px;
 }
 
 .card {
@@ -64,7 +66,7 @@ body,
 
 .grid {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .grid-12 {
@@ -108,7 +110,7 @@ body,
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .kpi-tile {
@@ -134,7 +136,7 @@ body,
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .btn-group {
