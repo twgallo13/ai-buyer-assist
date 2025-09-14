@@ -38,9 +38,12 @@ const normalizeToUi = (api: any) => {
 };
 
 const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) => {
-    const [headlines, setHeadlines] = useState<Array<{ title: string; source: string; timestamp?: string }>>([]);
-    const [headlinesLoading, setHeadlinesLoading] = useState(true);
-    const [headlinesError, setHeadlinesError] = useState<string | null>(null);
+    // Headlines state with comprehensive status tracking
+    const [headlinesState, setHeadlinesState] = useState<{
+        status: 'DISABLED' | 'LOADING' | 'OK' | 'EMPTY' | 'ERROR';
+        items: Array<{ title: string; source: string; timestamp?: string }>;
+        error?: string;
+    }>({ status: 'DISABLED', items: [] });
     const [apiHealth, setApiHealth] = useState<{ ok: boolean; keyPresent: boolean } | null>(null);
     const [settings, setSettings] = useState<Settings>(getSettings());
 
@@ -63,29 +66,30 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
         return unsubscribe;
     }, []);
 
-    // Function to fetch headlines with query support
+    // Function to fetch headlines with comprehensive state management
     const fetchHeadlines = async (searchQuery: string = 'sneakers') => {
-        setHeadlinesLoading(true);
-        setHeadlinesError(null);
+        if (!settings.externalSignalsEnabled) {
+            setHeadlinesState({ status: 'DISABLED', items: [] });
+            return;
+        }
+
+        setHeadlinesState({ status: 'LOADING', items: [] });
 
         try {
-            const response = await fetch(`/api/trends?query=${encodeURIComponent(searchQuery)}&limit=6`);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
+            const response = await fetch(`/api/trends?query=${encodeURIComponent(searchQuery)}`);
             const data = await response.json();
-            if (data && Array.isArray(data)) {
-                setHeadlines(data);
+
+            if (Array.isArray(data.items) && data.items.length > 0) {
+                setHeadlinesState({ status: 'OK', items: data.items });
             } else {
-                setHeadlines([]);
+                setHeadlinesState({ status: 'EMPTY', items: [] });
             }
-        } catch (error) {
-            console.warn('Headlines fetch failed:', error);
-            setHeadlinesError('Failed to load headlines');
-            setHeadlines([]);
-        } finally {
-            setHeadlinesLoading(false);
+        } catch (err: any) {
+            setHeadlinesState({
+                status: 'ERROR',
+                items: [],
+                error: String(err.message || err)
+            });
         }
     };
 
@@ -102,7 +106,7 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
 
         // Fetch initial headlines with default query
         fetchHeadlines('sneakers');
-    }, []);
+    }, [settings.externalSignalsEnabled]);
 
     // Auto-run Quick analysis if query param exists and hasn't run yet (Quick only)
     useEffect(() => {
@@ -144,8 +148,10 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                     dependency: normalized.kpis.nikeDependency
                 });
 
-                // Refresh headlines with current query
-                fetchHeadlines(targetQuery);
+                // Refresh headlines with current query if external signals are enabled
+                if (settings.externalSignalsEnabled) {
+                    fetchHeadlines(targetQuery);
+                }
             } else {
                 // Deep analysis
                 const body = {
@@ -172,8 +178,10 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                     dependency: normalized.kpis.nikeDependency
                 });
 
-                // Refresh headlines with current query
-                fetchHeadlines(targetQuery);
+                // Refresh headlines with current query if external signals are enabled
+                if (settings.externalSignalsEnabled) {
+                    fetchHeadlines(targetQuery);
+                }
             }
         } catch (e: any) {
             console.error('Analysis failed:', e);
@@ -398,8 +406,23 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                 <div className="card" style={{ marginBottom: 16 }}>
                     <h3>AI Headlines</h3>
 
-                    {/* Loading state */}
-                    {headlinesLoading && (
+                    {/* DISABLED state */}
+                    {headlinesState.status === 'DISABLED' && (
+                        <div style={{
+                            background: 'rgba(156, 163, 175, 0.1)',
+                            border: '1px solid rgba(156, 163, 175, 0.3)',
+                            color: 'var(--muted)',
+                            padding: '12px',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            textAlign: 'center'
+                        }}>
+                            Headlines disabled. Enable in Settings → External Signals.
+                        </div>
+                    )}
+
+                    {/* LOADING state */}
+                    {headlinesState.status === 'LOADING' && (
                         <div>
                             {[...Array(3)].map((_, i) => (
                                 <div key={i} style={{
@@ -413,8 +436,8 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                         </div>
                     )}
 
-                    {/* Error state */}
-                    {!headlinesLoading && headlinesError && (
+                    {/* ERROR state */}
+                    {headlinesState.status === 'ERROR' && (
                         <div style={{
                             background: 'rgba(239, 68, 68, 0.1)',
                             border: '1px solid rgba(239, 68, 68, 0.3)',
@@ -424,7 +447,7 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                             fontSize: '14px',
                             marginBottom: '8px'
                         }}>
-                            <div style={{ marginBottom: '6px' }}>{headlinesError}</div>
+                            <div style={{ marginBottom: '6px' }}>{headlinesState.error || 'Failed to load headlines'}</div>
                             <div style={{ display: 'flex', gap: '6px' }}>
                                 <button
                                     className="btn"
@@ -444,15 +467,15 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                         </div>
                     )}
 
-                    {/* Empty state */}
-                    {!headlinesLoading && !headlinesError && (!headlines || headlines.length === 0) && (
-                        <div className="badge">No headlines right now.</div>
+                    {/* EMPTY state */}
+                    {headlinesState.status === 'EMPTY' && (
+                        <div className="badge">No headlines for this query.</div>
                     )}
 
-                    {/* Headlines list */}
-                    {!headlinesLoading && !headlinesError && headlines && headlines.length > 0 && (
+                    {/* OK state - show headlines */}
+                    {headlinesState.status === 'OK' && (
                         <ul style={{ margin: 0, paddingLeft: 16 }}>
-                            {headlines.map((h, i) => (
+                            {headlinesState.items.slice(0, 6).map((h, i) => (
                                 <li key={i} style={{ marginBottom: 12 }}>
                                     <a
                                         href="#"
@@ -465,7 +488,6 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                                         }}
                                         onClick={(e) => {
                                             e.preventDefault();
-                                            // In a real app, this would open the article
                                             window.open('#', '_blank', 'noopener,noreferrer');
                                         }}
                                         onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
@@ -476,12 +498,24 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                                     <div style={{
                                         fontSize: '12px',
                                         color: 'var(--muted)',
-                                        marginTop: '2px',
+                                        marginTop: '4px',
                                         display: 'flex',
-                                        justifyContent: 'space-between'
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
                                     }}>
-                                        <span>{h?.source || 'Unknown source'}</span>
-                                        {h?.timestamp && <span>{h.timestamp}</span>}
+                                        <span className="badge" style={{
+                                            fontSize: '10px',
+                                            padding: '2px 6px',
+                                            backgroundColor: 'var(--accent-bg)',
+                                            color: 'var(--accent)'
+                                        }}>
+                                            {h?.source || 'Unknown'}
+                                        </span>
+                                        {h?.timestamp && (
+                                            <span style={{ fontSize: '10px' }}>
+                                                {new Date(h.timestamp).toLocaleTimeString()}
+                                            </span>
+                                        )}
                                     </div>
                                 </li>
                             ))}

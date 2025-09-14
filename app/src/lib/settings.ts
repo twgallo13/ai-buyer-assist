@@ -26,7 +26,9 @@ export const HELP_TEXT = {
         "Nike Portal Night Run": "Optimized for performance footwear with high velocity focus.",
         "Apparel Diversification": "Balanced approach for expanding clothing categories.",
         "Markdown Audit": "Conservative settings to minimize clearance risk."
-    }
+    },
+
+    externalSignalsEnabled: "Enable headlines and trending data from external sources. When disabled, only cached data will be shown."
 };
 
 export const VERSION = 'v2.1.9e';
@@ -57,6 +59,7 @@ export type Settings = {
     kpiWeights: KpiWeights;
     verdictThresholds: VerdictThresholds;
     presets: string; // currently selected preset name
+    externalSignalsEnabled: boolean; // Enable Headlines/External Signals
 };
 
 const DEFAULT: Settings = {
@@ -81,6 +84,7 @@ const DEFAULT: Settings = {
         aggressive: [9, 10],
     },
     presets: 'default',
+    externalSignalsEnabled: true,
 };
 
 const KEY = 'ai.settings.v2';

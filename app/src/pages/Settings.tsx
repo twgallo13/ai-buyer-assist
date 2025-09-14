@@ -7,6 +7,12 @@ export default function SettingsPage() {
   const [s, setS] = useState<Settings>(getSettings());
   const [version, setVersion] = useState<string>(getFallbackVersion());
 
+  // External Signals verification state
+  const [verifying, setVerifying] = useState(false);
+  const [signalsStatus, setSignalsStatus] = useState<'ACTIVE' | 'ERROR' | 'UNKNOWN'>('UNKNOWN');
+  const [signalsLastUpdate, setSignalsLastUpdate] = useState<string>('');
+  const [signalsError, setSignalsError] = useState<string>('');
+
   useEffect(() => {
     applyTheme(s.theme);
 
@@ -47,6 +53,23 @@ export default function SettingsPage() {
   function handlePresetApply(presetName: keyof typeof PRESETS) {
     applyPreset(presetName);
     setS(getSettings());
+  }
+
+  async function verifyExternalSignals() {
+    setVerifying(true);
+    try {
+      const r = await fetch('/api/trends?query=ping', { credentials: 'include' });
+      const data = await r.json();
+      const ok = Array.isArray(data.items) && data.items.length > 0;
+      setSignalsStatus(ok ? 'ACTIVE' : 'ERROR');
+      setSignalsLastUpdate(new Date().toISOString());
+      setSignalsError(ok ? '' : 'No items returned.');
+    } catch (e: any) {
+      setSignalsStatus('ERROR');
+      setSignalsError(e.message ?? 'Network error');
+    } finally {
+      setVerifying(false);
+    }
   }
 
   return (
@@ -195,7 +218,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Right Column - Health */}
+          {/* Right Column - Health & External Signals */}
           <div className="settings-sidebar">
             <div className="settings-card">
               <h3>Health</h3>
@@ -211,6 +234,56 @@ export default function SettingsPage() {
                 <span className="health-label">Last Refresh</span>
                 <span className="health-text">2 mins ago</span>
               </div>
+            </div>
+
+            {/* External Signals Section */}
+            <div className="settings-card">
+              <h3>External Signals</h3>
+              <div className="form-row">
+                <label className="form-label">
+                  <input
+                    type="checkbox"
+                    checked={s.externalSignalsEnabled}
+                    onChange={(e) => update('externalSignalsEnabled', e.target.checked)}
+                    style={{ marginRight: '8px' }}
+                  />
+                  Enable Headlines & Trends
+                </label>
+              </div>
+              <div className="form-help" style={{ marginBottom: '16px' }}>{HELP_TEXT.externalSignalsEnabled}</div>
+
+              {s.externalSignalsEnabled && (
+                <>
+                  <div className="health-item">
+                    <span className="health-label">Status</span>
+                    <span className={`health-chip ${signalsStatus === 'ACTIVE' ? 'health-good' : signalsStatus === 'ERROR' ? 'health-error' : 'health-warn'}`}>
+                      {signalsStatus === 'ACTIVE' ? 'Active' : signalsStatus === 'ERROR' ? 'Error' : 'Unknown'}
+                    </span>
+                  </div>
+                  <div className="health-item">
+                    <span className="health-label">Last Update</span>
+                    <span className="health-text">
+                      {signalsLastUpdate ? new Date(signalsLastUpdate).toLocaleString() : 'Never'}
+                    </span>
+                  </div>
+                  {signalsError && (
+                    <div className="health-item">
+                      <span className="health-label">Error</span>
+                      <span className="health-text" style={{ color: 'var(--error)', fontSize: '12px' }}>
+                        {signalsError}
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    className="btn btn-secondary"
+                    style={{ width: '100%', marginTop: '12px' }}
+                    onClick={verifyExternalSignals}
+                    disabled={verifying}
+                  >
+                    {verifying ? 'Verifying...' : 'Verify Now'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

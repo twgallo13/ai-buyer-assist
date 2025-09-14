@@ -1,6 +1,6 @@
 // Unified API utilities for version management and consistent fetching
 
-const FALLBACK_VERSION = 'v2.1.9m';
+const FALLBACK_VERSION = 'v2.1.9o';
 let cachedVersion: string | null = null;
 
 /**
