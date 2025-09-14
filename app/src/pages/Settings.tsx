@@ -1,13 +1,21 @@
 import { useEffect, useState } from 'react';
-import { getSettings, updateSettings, applyTheme, applyPreset, PRESETS, HELP_TEXT, VERSION, type Settings, type Theme, type RegionPreset, type KpiWeights, type VerdictThresholds } from '../lib/settings';
+import { getSettings, updateSettings, applyTheme, applyPreset, PRESETS, HELP_TEXT, type Settings, type Theme, type RegionPreset, type KpiWeights, type VerdictThresholds } from '../lib/settings';
+import { getApiVersion, getFallbackVersion } from '../lib/api';
 import '../styles/settings.css';
 
 export default function SettingsPage() {
   const [s, setS] = useState<Settings>(getSettings());
-
+  const [version, setVersion] = useState<string>(getFallbackVersion());
 
   useEffect(() => {
     applyTheme(s.theme);
+
+    // Load unified version
+    const loadVersion = async () => {
+      const apiVersion = await getApiVersion();
+      setVersion(apiVersion);
+    };
+    loadVersion();
   }, []);
 
   function update<K extends keyof Settings>(k: K, v: Settings[K]) {
@@ -210,7 +218,7 @@ export default function SettingsPage() {
 
       {/* Version Footer */}
       <div className="settings-footer">
-        <span className="version-text">Version {VERSION}</span>
+        <span className="version-text">Version {version}</span>
       </div>
     </div>
   );

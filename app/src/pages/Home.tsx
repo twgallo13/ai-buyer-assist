@@ -38,8 +38,9 @@ const normalizeToUi = (api: any) => {
 };
 
 const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) => {
-    const [headlines, setHeadlines] = useState<Array<{ title: string; source: string }>>([]);
+    const [headlines, setHeadlines] = useState<Array<{ title: string; source: string; timestamp?: string }>>([]);
     const [headlinesLoading, setHeadlinesLoading] = useState(true);
+    const [headlinesError, setHeadlinesError] = useState<string | null>(null);
     const [apiHealth, setApiHealth] = useState<{ ok: boolean; keyPresent: boolean } | null>(null);
     const [settings, setSettings] = useState<Settings>(getSettings());
 
@@ -62,6 +63,32 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
         return unsubscribe;
     }, []);
 
+    // Function to fetch headlines with query support
+    const fetchHeadlines = async (searchQuery: string = 'sneakers') => {
+        setHeadlinesLoading(true);
+        setHeadlinesError(null);
+
+        try {
+            const response = await fetch(`/api/trends?query=${encodeURIComponent(searchQuery)}&limit=6`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data && Array.isArray(data)) {
+                setHeadlines(data);
+            } else {
+                setHeadlines([]);
+            }
+        } catch (error) {
+            console.warn('Headlines fetch failed:', error);
+            setHeadlinesError('Failed to load headlines');
+            setHeadlines([]);
+        } finally {
+            setHeadlinesLoading(false);
+        }
+    };
+
     useEffect(() => {
         // Check API health on mount
         getApiHealth().then(health => {
@@ -73,18 +100,8 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
             setKpis(kpiData);
         });
 
-        // Try to fetch headlines from /api/trends
-        fetch('/api/trends?limit=5')
-            .then(res => res.json())
-            .then(data => {
-                if (data && Array.isArray(data)) {
-                    setHeadlines(data);
-                }
-                setHeadlinesLoading(false);
-            })
-            .catch(() => {
-                setHeadlinesLoading(false);
-            });
+        // Fetch initial headlines with default query
+        fetchHeadlines('sneakers');
     }, []);
 
     // Auto-run Quick analysis if query param exists and hasn't run yet (Quick only)
@@ -126,6 +143,9 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                     diversification: normalized.kpis.diversification,
                     dependency: normalized.kpis.nikeDependency
                 });
+
+                // Refresh headlines with current query
+                fetchHeadlines(targetQuery);
             } else {
                 // Deep analysis
                 const body = {
@@ -151,6 +171,9 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
                     diversification: normalized.kpis.diversification,
                     dependency: normalized.kpis.nikeDependency
                 });
+
+                // Refresh headlines with current query
+                fetchHeadlines(targetQuery);
             }
         } catch (e: any) {
             console.error('Analysis failed:', e);
@@ -374,14 +397,92 @@ const Home: React.FC<HomeProps> = ({ navigate: _navigate, initialQuery = '' }) =
             <div className="col-4">
                 <div className="card" style={{ marginBottom: 16 }}>
                     <h3>AI Headlines</h3>
-                    {headlinesLoading && <div className="badge">Loading…</div>}
-                    {!headlinesLoading && (!headlines || headlines.length === 0) && <div className="badge">No headlines right now.</div>}
-                    {!headlinesLoading && headlines && headlines.length > 0 && (
+
+                    {/* Loading state */}
+                    {headlinesLoading && (
+                        <div>
+                            {[...Array(3)].map((_, i) => (
+                                <div key={i} style={{
+                                    background: 'var(--skeleton)',
+                                    height: '40px',
+                                    borderRadius: '6px',
+                                    marginBottom: '8px',
+                                    animation: 'pulse 1.5s ease-in-out infinite'
+                                }} />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Error state */}
+                    {!headlinesLoading && headlinesError && (
+                        <div style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            color: '#ef4444',
+                            padding: '8px 12px',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            marginBottom: '8px'
+                        }}>
+                            <div style={{ marginBottom: '6px' }}>{headlinesError}</div>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                                <button
+                                    className="btn"
+                                    style={{ fontSize: '12px', padding: '4px 8px' }}
+                                    onClick={() => fetchHeadlines(lastQuery || 'sneakers')}
+                                >
+                                    Retry
+                                </button>
+                                <button
+                                    className="btn"
+                                    style={{ fontSize: '12px', padding: '4px 8px' }}
+                                    onClick={() => window.location.href = '/settings'}
+                                >
+                                    Settings
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Empty state */}
+                    {!headlinesLoading && !headlinesError && (!headlines || headlines.length === 0) && (
+                        <div className="badge">No headlines right now.</div>
+                    )}
+
+                    {/* Headlines list */}
+                    {!headlinesLoading && !headlinesError && headlines && headlines.length > 0 && (
                         <ul style={{ margin: 0, paddingLeft: 16 }}>
                             {headlines.map((h, i) => (
-                                <li key={i} style={{ marginBottom: 8 }}>
-                                    <span style={{ color: 'var(--text)' }}>{h?.title || 'Untitled'}</span>
-                                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{h?.source || 'Unknown source'}</div>
+                                <li key={i} style={{ marginBottom: 12 }}>
+                                    <a
+                                        href="#"
+                                        style={{
+                                            color: 'var(--text)',
+                                            textDecoration: 'none',
+                                            fontSize: '14px',
+                                            fontWeight: '500',
+                                            lineHeight: '1.4'
+                                        }}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            // In a real app, this would open the article
+                                            window.open('#', '_blank', 'noopener,noreferrer');
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text)'}
+                                    >
+                                        {h?.title || 'Untitled'}
+                                    </a>
+                                    <div style={{
+                                        fontSize: '12px',
+                                        color: 'var(--muted)',
+                                        marginTop: '2px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between'
+                                    }}>
+                                        <span>{h?.source || 'Unknown source'}</span>
+                                        {h?.timestamp && <span>{h.timestamp}</span>}
+                                    </div>
                                 </li>
                             ))}
                         </ul>

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import ThemeToggle from '../ThemeToggle';
+import { getApiVersion, getFallbackVersion } from '../../lib/api';
 
 interface HeaderProps {
     currentPage: string;
@@ -7,41 +8,15 @@ interface HeaderProps {
     usage?: { deepCalls: number; budget: number } | null;
 }
 
-const FALLBACK_VERSION = 'v2.1.9l';
-
 const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, usage }) => {
-    const [version, setVersion] = useState<string>(FALLBACK_VERSION);
+    const [version, setVersion] = useState<string>(getFallbackVersion());
     const [healthStatus, setHealthStatus] = useState<{ ok: boolean; keyPresent: boolean } | null>(null);
-    const errorLoggedRef = useRef(false);
 
     useEffect(() => {
-        // Try to fetch version from API with hardened error handling
-        const fetchVersion = async () => {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 2000);
-
-                const response = await fetch('/api/version', {
-                    signal: controller.signal,
-                });
-
-                clearTimeout(timeoutId);
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                const data = await response.json();
-                const apiVersion = data.version ?? FALLBACK_VERSION;
-                setVersion(apiVersion);
-            } catch (error) {
-                // Only log the error once to avoid console spam
-                if (!errorLoggedRef.current) {
-                    console.warn('Version fetch failed, using fallback:', error);
-                    errorLoggedRef.current = true;
-                }
-                setVersion(FALLBACK_VERSION);
-            }
+        // Use unified version API
+        const loadVersion = async () => {
+            const apiVersion = await getApiVersion();
+            setVersion(apiVersion);
         };
 
         // Check API health on mount
@@ -74,7 +49,7 @@ const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, usage }) =
             }
         };
 
-        fetchVersion();
+        loadVersion();
         fetchHealth();
     }, []);
 
